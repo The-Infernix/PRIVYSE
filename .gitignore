@@ -1,0 +1,27 @@
+# Extension
+extension/node_modules/
+extension/.output/
+extension/.wxt/
+extension/.env
+
+# Benchmarks
+benchmarks/node_modules/
+benchmarks/dist/
+
+# Python
+server/.venv/
+__pycache__/
+*.pyc
+
+# Build plan PDF build collateral is kept, session transcripts are not
+session-ses_*.md
+
+# Misc
+.DS_Store
+*.log
+
+# Reference project (public): https://github.com/Bitshank-2338/clicky-windows
+clicky-windows/
+
+# LaTeX build collateral
+*.aux

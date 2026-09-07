@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SIH 26171 — Ground-Truth Test Site</title>
+    <style>
+      :root { color-scheme: light; }
+      body {
+        margin: 0;
+        padding: 32px;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      h1 { margin: 0 0 6px; }
+      p.sub { color: #64748b; margin: 0 0 24px; }
+      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+      .card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 20px;
+        text-decoration: none;
+        color: inherit;
+        transition: border-color 0.15s;
+      }
+      .card:hover { border-color: #0ea5e9; }
+      .card h2 { margin: 0 0 4px; font-size: 16px; }
+      .card p { margin: 0; color: #64748b; font-size: 13px; }
+      .badge { display: inline-block; margin-top: 10px; font-size: 11px; color: #0f766e; background: #ccfbf1; border-radius: 999px; padding: 3px 8px; }
+    </style>
+  </head>
+  <body>
+    <h1>SIH 26171 Test Site</h1>
+    <p class="sub">Ground truth via <code>data-gt</code> attributes. The benchmark harness reads these to score the sanitizer.</p>
+
+    <div class="cards">
+      <a class="card" href="flight-booking.html">
+        <h2>Flight booking</h2>
+        <p>Passenger detail + payment form. Email, phone, PAN, Aadhaar, card.</p>
+        <span class="badge">data-gt labelled</span>
+      </a>
+      <a class="card" href="bank-transfer.html">
+        <h2>Bank transfer</h2>
+        <p>Login + recipient form. User ID, password, account, IFSC, OTP.</p>
+        <span class="badge">data-gt labelled</span>
+      </a>
+      <a class="card" href="pii-in-the-wild.html">
+        <h2>PII in the wild</h2>
+        <p>Names/numbers in prose, a domestic card, addresses, an avatar face, canvas-drawn text.</p>
+        <span class="badge">image / canvas cases</span>
+      </a>
+    </div>
+  </body>
+</html>

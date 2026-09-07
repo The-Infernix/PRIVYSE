@@ -1,0 +1,137 @@
+{
+  "generated_at": "2026-09-07T20:11:27.489Z",
+  "server": "http://127.0.0.1:8000",
+  "model": "qwen2.5vl:3b",
+  "routed": false,
+  "model_small": null,
+  "model_big": null,
+  "steps_budget": 12,
+  "task_success": {
+    "passed": 3,
+    "total": 3,
+    "rate": 1
+  },
+  "agent_steps": {
+    "mean": 1.3,
+    "max": 2,
+    "min": 1
+  },
+  "latency_waterfall_ms": {
+    "capture": {
+      "mean": 110.4
+    },
+    "serialize": {
+      "mean": 2.9
+    },
+    "sanitize": {
+      "mean": 119.3
+    },
+    "upload": {
+      "mean": 6899.1
+    },
+    "vlm": {
+      "mean": 6899.1
+    },
+    "execute": {
+      "mean": 789.2
+    },
+    "rethink": {
+      "mean": 0
+    }
+  },
+  "runs": [
+    {
+      "id": "flight-booking",
+      "success": true,
+      "successMessage": "reached payment step",
+      "expected": "name=arav sharma, email=alice@example.com, phone contains 98765, pan=ABCDE1234F, aadhaar contains 6789, then clicked continue",
+      "modelUsed": "qwen2.5vl:3b",
+      "steps": 1,
+      "avgLatencyMs": {
+        "capture": 155.7,
+        "serialize": 3.8,
+        "sanitize": 285.3,
+        "upload": 6753.4,
+        "vlm": 6753.4,
+        "execute": 1243.3,
+        "rethink": 0
+      },
+      "trace": [
+        {
+          "cmd": "click #9",
+          "thought": "Click on the 'Continue to payment' button",
+          "actionType": "click",
+          "done": false,
+          "blocked": false,
+          "model": "qwen2.5vl:3b",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "bank-transfer",
+      "success": true,
+      "successMessage": "reached transfer details step",
+      "expected": "reaches the transfer details step (beneficiary/account/IFSC page)",
+      "modelUsed": "qwen2.5vl:3b",
+      "steps": 2,
+      "avgLatencyMs": {
+        "capture": 60.2,
+        "serialize": 0.6,
+        "sanitize": 44.9,
+        "upload": 6321.9,
+        "vlm": 6321.9,
+        "execute": 1123.1,
+        "rethink": 0
+      },
+      "trace": [
+        {
+          "cmd": "type #3 \"hunter2\"",
+          "thought": "Enter password in field",
+          "actionType": "type",
+          "done": false,
+          "blocked": false,
+          "model": "qwen2.5vl:3b",
+          "error": null
+        },
+        {
+          "cmd": "click #5",
+          "thought": "Click the 'Login' button to proceed.",
+          "actionType": "click",
+          "done": false,
+          "blocked": false,
+          "model": "qwen2.5vl:3b",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "pii-in-the-wild",
+      "success": true,
+      "successMessage": "reported public contact info and redacted IDs (hits=2)",
+      "expected": "email support@invoices.example, phone +91 99887 76655, pan ZZZPM1234Q, aadhaar 3456 7890 1234",
+      "modelUsed": "qwen2.5vl:3b",
+      "steps": 1,
+      "avgLatencyMs": {
+        "capture": 115.3,
+        "serialize": 4.4,
+        "sanitize": 27.8,
+        "upload": 7622.1,
+        "vlm": 7622.1,
+        "execute": 1.2,
+        "rethink": 0
+      },
+      "trace": [
+        {
+          "cmd": "extract \"support@invoices.example or call +91 99887 76655.\"",
+          "thought": "Extract email and phone number",
+          "actionType": "extract",
+          "done": false,
+          "blocked": false,
+          "model": "qwen2.5vl:3b",
+          "error": null
+        }
+      ]
+    }
+  ]
+}

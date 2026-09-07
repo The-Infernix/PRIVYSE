@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SIH 26171 — Architecture diagram
+  On-device Visual Perception for Light-weight Browser Agents
+  Vector master. Insert directly into PowerPoint / Keynote / Google Slides.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1380" height="1010" viewBox="0 0 1380 1010" font-family="Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="ar"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#283593"/>
+    </marker>
+    <marker id="arred" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b62835"/>
+    </marker>
+    <marker id="arblu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0d6efd"/>
+    </marker>
+    <marker id="argrn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#15803d"/>
+    </marker>
+  </defs>
+
+  <!-- ============ USER TASK ============ -->
+  <rect x="540" y="12" width="300" height="34" rx="17" fill="#ffffff" stroke="#283593" stroke-width="2"/>
+  <text x="690" y="34" text-anchor="middle" font-size="14" font-weight="bold" fill="#111">USER TASK &mdash; e.g. start with a phrase</text>
+  <line x1="690" y1="46" x2="690" y2="58" stroke="#283593" stroke-width="2" marker-end="url(#ar)"/>
+
+  <!-- ============ EXTENSION BAND ============ -->
+  <rect x="60" y="58" width="1240" height="504" rx="14" fill="#eef1fb" stroke="#283593" stroke-width="2.5"/>
+  <text x="80" y="84" font-size="15" font-weight="bold" fill="#283593">CHROME EXTENSION &mdash; on your machine (WXT &middot; TypeScript &middot; Chrome MV3)</text>
+
+  <!-- side panel -->
+  <rect x="80" y="98" width="252" height="122" rx="8" fill="#ffffff" stroke="#283593" stroke-width="1.5"/>
+  <text x="96" y="120" font-size="13.5" font-weight="bold" fill="#111">SIDE PANEL (UI)</text>
+  <text x="96" y="141" font-size="12" fill="#222">task input &middot; run-one-step</text>
+  <text x="96" y="159" font-size="12" fill="#222">live activity log</text>
+  <text x="96" y="177" font-size="12" fill="#222">capture preview</text>
+  <text x="96" y="195" font-size="12" fill="#222">VLM &#8220;thinking&#8221; via SSE</text>
+
+  <!-- background orchestrator -->
+  <rect x="80" y="234" width="252" height="232" rx="8" fill="#ffffff" stroke="#283593" stroke-width="1.5"/>
+  <text x="96" y="256" font-size="13.5" font-weight="bold" fill="#111">BACKGROUND ORCHESTRATOR</text>
+  <text x="96" y="278" font-size="12" fill="#222">step scheduler (throttled)</text>
+  <text x="96" y="296" font-size="12" fill="#222">captureVisibleTab &#8594; gate</text>
+  <text x="96" y="314" font-size="12" fill="#222">&#8594; POST /act</text>
+  <text x="96" y="332" font-size="12" fill="#222">stuck detection</text>
+  <text x="96" y="350" font-size="12" fill="#222">&#8594; /rethink recovery</text>
+  <text x="96" y="368" font-size="12" fill="#222">per-host lesson memory</text>
+  <text x="96" y="386" font-size="12" fill="#222">within-run DO-NOT-REPEAT</text>
+  <line x1="206" y1="234" x2="206" y2="222" stroke="#283593" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <!-- 1 capture -->
+  <rect x="360" y="98" width="220" height="122" rx="8" fill="#ffffff" stroke="#283593" stroke-width="2"/>
+  <text x="376" y="120" font-size="13.5" font-weight="bold" fill="#283593">1 &nbsp;CAPTURE</text>
+  <text x="376" y="141" font-size="12" fill="#222">captureVisibleTab &#8594; JPEG</text>
+  <text x="376" y="159" font-size="12" fill="#222">DOM walker &#8594; numbered list</text>
+  <text x="376" y="177" font-size="12" fill="#222">&nbsp;&nbsp;(&#8804; 120 elements)</text>
+  <text x="376" y="195" font-size="12" fill="#222">bbox &#215; devicePixelRatio</text>
+  <text x="376" y="213" font-size="12" fill="#222">id &middot; label &middot; role &middot; value</text>
+
+  <!-- 2 sanitize -->
+  <rect x="626" y="98" width="334" height="182" rx="8" fill="#ffffff" stroke="#283593" stroke-width="2"/>
+  <text x="642" y="120" font-size="13.5" font-weight="bold" fill="#283593">2 &nbsp;SANITIZE &mdash; PRIVACY CHOKE POINT</text>
+  <text x="642" y="139" font-size="12" fill="#222">Tier A&nbsp; password / secret / hidden</text>
+  <text x="642" y="157" font-size="12" fill="#222">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&#8594; solid black box, no text</text>
+  <text x="642" y="175" font-size="12" fill="#222">Tier B&nbsp; regex PII &#8594; stable token:</text>
+  <text x="642" y="193" font-size="12" fill="#222">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[EMAIL_1] [AADHAAR_1] [PAN_1]</text>
+  <text x="642" y="211" font-size="12" fill="#222">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[CARD_1] [NAME_1] &hellip;</text>
+  <text x="642" y="229" font-size="12" fill="#222">Tier C&nbsp; faces blurred &middot; OCR PII in</text>
+  <text x="642" y="247" font-size="12" fill="#222">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;images/canvas &#8594; taint region</text>
+  <text x="642" y="267" font-size="12" fill="#222">same value &#8658; same token (continuity)</text>
+
+  <!-- vision host -->
+  <rect x="994" y="98" width="286" height="152" rx="8" fill="#ffffff" stroke="#283593" stroke-width="1.5"/>
+  <text x="1010" y="120" font-size="13" font-weight="bold" fill="#111">OFFSCREEN VISION HOST</text>
+  <text x="1010" y="139" font-size="12" fill="#222">offscreen document (MV3)</text>
+  <text x="1010" y="157" font-size="12" fill="#222">MediaPipe BlazeFace &#8594; faces</text>
+  <text x="1010" y="175" font-size="12" fill="#222">&nbsp;&nbsp;&#8594; crushed-blur (no recovery)</text>
+  <text x="1010" y="193" font-size="12" fill="#222">Tesseract.js OCR (WASM, eng)</text>
+  <text x="1010" y="211" font-size="12" fill="#222">&nbsp;&nbsp;img / canvas / video only</text>
+  <text x="1010" y="229" font-size="12" fill="#222">weights bundled 2.2 MB &mdash; no CDN</text>
+  <text x="1010" y="245" font-size="11.5" fill="#111" font-weight="bold">~0.3 s on-device per step</text>
+
+  <!-- arrows row 1 -->
+  <line x1="580" y1="159" x2="624" y2="159" stroke="#283593" stroke-width="2" marker-end="url(#ar)"/>
+  <line x1="994" y1="170" x2="962" y2="170" stroke="#283593" stroke-width="1.5" marker-end="url(#ar)"/>
+
+  <!-- 3 set-of-marks -->
+  <rect x="360" y="252" width="230" height="130" rx="8" fill="#ffffff" stroke="#283593" stroke-width="2"/>
+  <text x="376" y="274" font-size="13.5" font-weight="bold" fill="#283593">3 &nbsp;SET-OF-MARKS RENDER</text>
+  <text x="376" y="295" font-size="12" fill="#222">draw numbered [N] tags onto</text>
+  <text x="376" y="313" font-size="12" fill="#222">the sanitized image</text>
+  <text x="376" y="331" font-size="12" fill="#222">VLM targets integers, never</text>
+  <text x="376" y="349" font-size="12" fill="#222">coordinates</text>
+  <line x1="700" y1="280" x2="700" y2="254" stroke="#283593" stroke-width="2" marker-end="url(#ar)"/>
+
+  <!-- 4 zero-leak -->
+  <rect x="626" y="304" width="654" height="200" rx="8" fill="#fdecec" stroke="#b62835" stroke-width="2"/>
+  <text x="642" y="326" font-size="13.5" font-weight="bold" fill="#b62835">4 &nbsp;ZERO-LEAK &mdash; TWO FAIL-CLOSED GATES</text>
+  <rect x="642" y="340" width="316" height="82" rx="6" fill="#ffffff" stroke="#b62835" stroke-width="1.5"/>
+  <text x="656" y="360" font-size="12" font-weight="bold" fill="#111">REGEX SCAN &mdash; outbound DOM JSON</text>
+  <text x="656" y="380" font-size="12" fill="#222">scanForLeaks over every text/value</text>
+  <text x="656" y="398" font-size="12" font-weight="bold" fill="#b62835">any PII hit &#8594; BLOCK upload</text>
+  <rect x="972" y="340" width="292" height="82" rx="6" fill="#ffffff" stroke="#b62835" stroke-width="1.5"/>
+  <text x="986" y="360" font-size="12" font-weight="bold" fill="#111">OCR &mdash; SANITIZED SCREENSHOT PIXELS</text>
+  <text x="986" y="380" font-size="12" fill="#222">scanSanitizedImage (what uploads)</text>
+  <text x="986" y="398" font-size="12" font-weight="bold" fill="#b62835">any PII hit OR gate error &#8594; BLOCK</text>
+  <text x="642" y="448" font-size="12" font-style="italic" fill="#b62835">a gate that cannot run must not silently approve &mdash; fail-closed by construction</text>
+  <text x="642" y="478" font-size="13" font-weight="bold" fill="#283593">5 &nbsp;SEND &mdash; ONLY redacted JPEG + numbered DOM</text>
+
+  <!-- boundary & send arrow -->
+  <line x1="960" y1="506" x2="960" y2="580" stroke="#283593" stroke-width="2" marker-end="url(#ar)"/>
+  <line x1="60" y1="586" x2="1300" y2="586" stroke="#b62835" stroke-width="2" stroke-dasharray="8 6"/>
+  <text x="80" y="576" font-size="12.5" font-weight="bold" font-style="italic" fill="#b62835">PRIVACY BOUNDARY &mdash; raw PII never crosses</text>
+
+  <!-- ============ SERVER BAND ============ -->
+  <rect x="60" y="600" width="1240" height="232" rx="14" fill="#e9f3ff" stroke="#0d6efd" stroke-width="2.5"/>
+  <text x="80" y="626" font-size="15" font-weight="bold" fill="#0d6efd">LOCAL SERVER &mdash; FastAPI + Ollama on 127.0.0.1 (no internet &middot; no API keys)</text>
+
+  <rect x="80" y="644" width="390" height="150" rx="8" fill="#ffffff" stroke="#0d6efd" stroke-width="2"/>
+  <text x="96" y="666" font-size="13.5" font-weight="bold" fill="#0d6efd">FASTAPI (Python)</text>
+  <text x="96" y="687" font-size="12" fill="#222">/act &middot; /act/stream (SSE thinking)</text>
+  <text x="96" y="705" font-size="12" fill="#222">/rethink &middot; /rethink/stream</text>
+  <text x="96" y="723" font-size="12" fill="#222">/warm &middot; /health &middot; /models</text>
+  <text x="96" y="741" font-size="12" fill="#222">prompt builder (image + DOM)</text>
+  <text x="96" y="759" font-size="12" fill="#222">resolve_target validation &amp; coerce</text>
+  <text x="96" y="777" font-size="12" fill="#222">structural repeat-veto signatures</text>
+
+  <rect x="510" y="644" width="770" height="150" rx="8" fill="#ffffff" stroke="#0d6efd" stroke-width="2"/>
+  <text x="526" y="666" font-size="13.5" font-weight="bold" fill="#0d6efd">OLLAMA &mdash; QWEN2.5-VL 3b / 7b (local VLM)</text>
+  <text x="526" y="687" font-size="12" fill="#222">reads the SANITIZED image + numbered DOM</text>
+  <text x="526" y="705" font-size="12" fill="#222">returns exactly ONE JSON action + thought &middot; subgoal &middot; blocked</text>
+  <text x="526" y="723" font-size="12" fill="#222">click &middot; type &middot; press &middot; scroll &middot; navigate &middot; wait &middot; extract &middot; done</text>
+  <text x="526" y="741" font-size="12" fill="#222">keep_alive = -1 &#8594; model resident (no cold-load per step)</text>
+  <text x="526" y="759" font-size="12" fill="#222">routing: 3b for interactive steps &middot; 7b for read/report</text>
+  <text x="526" y="777" font-size="12" fill="#222">temperature 0 &middot; max_tokens 128 &middot; image resized &#8804; 800 px</text>
+
+  <line x1="470" y1="719" x2="508" y2="719" stroke="#0d6efd" stroke-width="2" marker-end="url(#arblu)"/>
+  <text x="526" y="812" font-size="12" font-style="italic" fill="#0d6efd">RECOVERY: stuck / repeated / blocked &#8594; /rethink structurally vetoes repeats &#8594; untried-element escape hatch &#8594; never returns &ldquo;done&rdquo; just to escape the loop</text>
+
+  <!-- ============ JSON ACTION RETURN ============ -->
+  <line x1="960" y1="832" x2="960" y2="858" stroke="#0d6efd" stroke-width="2.5" marker-end="url(#arblu)"/>
+  <text x="976" y="850" font-size="12.5" font-weight="bold" fill="#0d6efd">ONLY JSON action &mdash; no pixels sent back</text>
+
+  <!-- ============ EXECUTE STRIP ============ -->
+  <rect x="60" y="868" width="1240" height="86" rx="14" fill="#e8f7ee" stroke="#15803d" stroke-width="2.5"/>
+  <text x="80" y="890" font-size="14" font-weight="bold" fill="#15803d">9 &nbsp;EXECUTE &mdash; in the active tab</text>
+  <text x="80" y="912" font-size="12" fill="#222">background &#8594; content script: resolve element ID &middot; scroll into view &middot; virtual cursor &#8594; pointer/keyboard events</text>
+  <text x="80" y="932" font-size="12" fill="#222">React-safe typing (execCommand) &middot; auto-descend into the real &lt;input&gt; &middot; remember verified targets</text>
+
+  <!-- ============ LOOP BACK ============ -->
+  <polyline points="1300,911 1336,911 1336,190 1312,190" fill="none" stroke="#283593" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#ar)"/>
+  <text x="1358" y="560" transform="rotate(90 1358 560)" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#444">loop &mdash; repeat until done=true</text>
+
+  <!-- ============ LEGEND ============ -->
+  <rect x="80" y="972" width="14" height="14" fill="#283593"/>
+  <text x="100" y="984" font-size="12" fill="#111">On-device (extension)</text>
+  <rect x="238" y="972" width="14" height="14" fill="#0d6efd"/>
+  <text x="258" y="984" font-size="12" fill="#111">Local server / VLM</text>
+  <rect x="408" y="972" width="14" height="14" fill="#b62835"/>
+  <text x="428" y="984" font-size="12" fill="#111">Fail-closed privacy enforcement</text>
+  <rect x="650" y="972" width="14" height="14" fill="#15803d"/>
+  <text x="670" y="984" font-size="12" fill="#111">Execution</text>
+  <text x="810" y="984" font-size="12" font-style="italic" fill="#444">All local &middot; 0 MB cloud &middot; PII F1 0.979 &middot; zero-leak PASS &middot; 3/3 tasks</text>
+</svg>

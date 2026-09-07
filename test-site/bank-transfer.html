@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NovaBank — transfer</title>
+    <style>
+      :root { color-scheme: light; }
+      body { margin: 0; padding: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f1f5f9; color: #0f172a; }
+      header { background: #7c3aed; color: #fff; padding: 14px 24px; }
+      header h1 { margin: 0; font-size: 18px; }
+      main { max-width: 720px; margin: 24px auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; }
+      h2 { margin: 0 0 16px; font-size: 15px; }
+      form { display: grid; gap: 14px; }
+      label { display: grid; gap: 5px; font-size: 13px; color: #0f172a; font-weight: 600; }
+      input { border: 1px solid #cbd5e1; border-radius: 7px; padding: 9px 11px; font-size: 14px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .actions { display: flex; justify-content: space-between; margin-top: 10px; }
+      button { background: #7c3aed; color: #fff; border: 0; border-radius: 7px; padding: 11px 20px; font-size: 14px; font-weight: 600; cursor: pointer; }
+      a { color: #7c3aed; font-size: 13px; }
+      .note { font-size: 11px; color: #94a3b8; font-weight: 400; }
+    </style>
+  </head>
+  <body>
+    <header><h1>NovaBank — money transfer</h1></header>
+    <main>
+      <h2>Login</h2>
+      <form id="login-form" action="bank-transfer-details.html">
+        <label>User ID
+          <input name="userid" autocomplete="username" data-gt="name:priya26171" value="priya26171" />
+        </label>
+        <label>Password
+          <input name="password" type="password" autocomplete="current-password" data-gt="password:hunter2" value="hunter2" />
+        </label>
+        <div class="actions">
+          <a href="index.html">← Back</a>
+          <button type="submit">Login</button>
+        </div>
+      </form>
+    </main>
+  </body>
+</html>

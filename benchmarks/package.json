@@ -1,0 +1,14 @@
+{
+  "name": "sih26171-benchmarks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "bench": "node scripts/build.mjs && node run.mjs",
+    "bench:vlm": "node scripts/build.mjs && node vlm-bench.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "playwright-core": "^1.49.0"
+  }
+}

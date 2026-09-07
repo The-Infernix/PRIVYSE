@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PII in the wild</title>
+    <style>
+      :root { color-scheme: light; }
+      body { margin: 0; padding: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f1f5f9; color: #0f172a; }
+      header { background: #0f766e; color: #fff; padding: 14px 24px; }
+      header h1 { margin: 0; font-size: 18px; }
+      main { max-width: 760px; margin: 24px auto; display: grid; gap: 18px; }
+      .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; }
+      .card h2 { margin: 0 0 10px; font-size: 14px; }
+      p { margin: 0 0 10px; font-size: 14px; line-height: 1.6; }
+      a { color: #0f766e; }
+      .meta { font-size: 11px; color: #94a3b8; }
+      .avatar-row { display: flex; gap: 18px; align-items: center; }
+      img.avatar { width: 96px; height: 96px; border-radius: 50%; border: 2px solid #e2e8f0; }
+      #bill-title-canvas, #bill-account-canvas, #bill-amount-canvas {
+        display: block; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; margin-bottom: 6px;
+      }
+      table { border-collapse: collapse; width: 100%; font-size: 13px; }
+      td, th { border: 1px solid #e2e8f0; padding: 6px 10px; text-align: left; }
+      th { background: #f8fafc; }
+    </style>
+  </head>
+  <body>
+    <header><h1>PII in the wild</h1></header>
+    <main>
+      <div class="card" id="contact-note">
+        <h2>Contact note</h2>
+        <p>For queries about your order, reach us at <b data-gt="email:support@invoices.example">support@invoices.example</b> or call <b data-gt="phone:+91 99887 76655">+91 99887 76655</b>. Our support desk is open Mon-Sat, 9 AM to 9 PM.</p>
+        <p class="meta">data-gt: email + phone on this container</p>
+      </div>
+
+      <div class="card" id="kbc-note">
+        <h2>KYC notice</h2>
+        <p>Your PAN <b data-gt="pan:ZZZPM1234Q">ZZZPM1234Q</b> is linked to a bank account with Aadhaar <b data-gt="aadhaar:3456 7890 1234">3456 7890 1234</b>. Keep both handy for verification.</p>
+        <p class="meta">data-gt: pan on container; aadhaar appears in prose too</p>
+      </div>
+
+      <div class="card">
+        <h2>Address block</h2>
+        <address data-gt="address:B-204, Green Grove Apartments, Whitefield, Bengaluru 560066" data-phase2="1" id="addr-block">
+          B-204, Green Grove Apartments,<br />
+          Whitefield, Bengaluru 560066
+        </address>
+        <p class="meta">data-gt: address</p>
+      </div>
+
+      <div class="card">
+        <h2>Receipt</h2>
+        <table>
+          <thead><tr><th>Item</th><th>Ref</th><th>Amount</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Cloud subscription</td>
+              <td data-gt="card:4242 4242 4242 4242" id="receipt-card">4242 4242 4242 4242</td>
+              <td>₹ 1,899</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="meta">data-gt: card (Luhn-valid visa test number) inside a table cell</p>
+      </div>
+
+      <div class="card">
+        <h2>Team avatars</h2>
+        <div class="avatar-row">
+          <img class="avatar" data-gt="face" id="avatar-1" alt="Mahesh profile photo"
+               src="assets/face-1.jpg" />
+          <img class="avatar" data-gt="face" id="avatar-2" alt="Divya profile photo"
+               src="assets/face-2.jpg" />
+        </div>
+        <p class="meta">data-gt: face (Tier C — blurred by the on-device MediaPipe face detector)</p>
+      </div>
+
+      <div class="card">
+        <h2>Electricity bill (canvas-drawn text)</h2>
+        <canvas id="bill-title-canvas" width="360" height="44"></canvas>
+        <canvas id="bill-account-canvas" data-gt="account:EB-CA989766" width="360" height="32"></canvas>
+        <canvas id="bill-amount-canvas" width="360" height="32"></canvas>
+        <p class="meta">data-gt: account — device text is invisible to DOM rules; caught by the on-device OCR layer</p>
+      </div>
+
+      <div class="card">
+        <a href="index.html">← Back to hub</a>
+      </div>
+    </main>
+    <script>
+      (function () {
+        function draw(id, lines) {
+          var canvas = document.getElementById(id);
+          var ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.textBaseline = "middle";
+          for (var i = 0; i < lines.length; i++) {
+            ctx.font = lines[i].font;
+            ctx.fillStyle = lines[i].color;
+            ctx.fillText(lines[i].text, 14, canvas.height / 2);
+          }
+        }
+        draw("bill-title-canvas", [
+          { text: "Electricity Bill", font: "bold 22px monospace", color: "#1e293b" },
+        ]);
+        draw("bill-account-canvas", [
+          { text: "Consumer no: EB-CA989766", font: "16px monospace", color: "#334155" },
+        ]);
+        draw("bill-amount-canvas", [
+          { text: "Amount due: Rs 1,240 (by 05 Oct)", font: "16px monospace", color: "#334155" },
+        ]);
+      })();
+    </script>
+  </body>
+</html>

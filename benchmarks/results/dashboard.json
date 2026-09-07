@@ -1,0 +1,250 @@
+{
+  "generated_at": "2026-09-07T16:34:11.328Z",
+  "model_set": [
+    "qwen2.5vl:3b",
+    "qwen2.5vl:7b"
+  ],
+  "test_site_pages": 6,
+  "per_criterion": {
+    "visual_context_accuracy": {
+      "weight": 0.25,
+      "metric": "task completion with VLM",
+      "vlm_3b": {
+        "passed": 2,
+        "total": 3,
+        "rate": 0.67,
+        "avg_steps": 4.7
+      },
+      "vlm_7b": {
+        "passed": 3,
+        "total": 3,
+        "rate": 1,
+        "avg_steps": 1.3
+      },
+      "routed_small_big": {
+        "passed": 3,
+        "total": 3,
+        "rate": 1,
+        "avg_steps": 1,
+        "description": "3b for interactive steps, 7b for read/report tasks"
+      }
+    },
+    "pii_detection_f1": {
+      "weight": 0.2,
+      "metric": "detection P/R (pixel IoU) over GT-labelled pages",
+      "overview": {
+        "precisionPx": 0.959,
+        "recallPx": 1,
+        "f1Px": 0.979
+      },
+      "categories": {
+        "name": {
+          "gtElements": 4,
+          "recallElements": 4,
+          "recallElementPct": 100,
+          "precisionPx": 1,
+          "recallPx": 1,
+          "f1Px": 1
+        },
+        "email": {
+          "gtElements": 2,
+          "recallElements": 2,
+          "recallElementPct": 100,
+          "precisionPx": 0.999,
+          "recallPx": 1,
+          "f1Px": 0.999
+        },
+        "phone": {
+          "gtElements": 2,
+          "recallElements": 2,
+          "recallElementPct": 100,
+          "precisionPx": 0.897,
+          "recallPx": 0.999,
+          "f1Px": 0.945
+        },
+        "pan": {
+          "gtElements": 2,
+          "recallElements": 2,
+          "recallElementPct": 100,
+          "precisionPx": 1,
+          "recallPx": 1,
+          "f1Px": 1
+        },
+        "aadhaar": {
+          "gtElements": 2,
+          "recallElements": 2,
+          "recallElementPct": 100,
+          "precisionPx": 0.905,
+          "recallPx": 1,
+          "f1Px": 0.95
+        },
+        "address": {
+          "gtElements": 2,
+          "recallElements": 2,
+          "recallElementPct": 100,
+          "precisionPx": 1,
+          "recallPx": 1,
+          "f1Px": 1
+        },
+        "card": {
+          "gtElements": 2,
+          "recallElements": 2,
+          "recallElementPct": 100,
+          "precisionPx": 1,
+          "recallPx": 0.999,
+          "f1Px": 1
+        },
+        "password": {
+          "gtElements": 3,
+          "recallElements": 3,
+          "recallElementPct": 100,
+          "precisionPx": 0.818,
+          "recallPx": 1,
+          "f1Px": 0.9
+        },
+        "account": {
+          "gtElements": 2,
+          "recallElements": 2,
+          "recallElementPct": 100,
+          "precisionPx": 1,
+          "recallPx": 1,
+          "f1Px": 1
+        },
+        "ifsc": {
+          "gtElements": 1,
+          "recallElements": 1,
+          "recallElementPct": 100,
+          "precisionPx": 1,
+          "recallPx": 1,
+          "f1Px": 1
+        },
+        "face": {
+          "gtElements": 2,
+          "recallElements": 2,
+          "recallElementPct": 100,
+          "precisionPx": 1,
+          "recallPx": 1,
+          "f1Px": 1
+        }
+      },
+      "zero_leak_pass": true
+    },
+    "redaction_precision": {
+      "weight": 0.2,
+      "metric": "(redacted ∩ GT) / redacted pixels",
+      "precision_px": 0.959,
+      "recall_px": 1,
+      "f1_px": 0.979
+    },
+    "client_resources": {
+      "weight": 0.2,
+      "metric": "client-side work per step",
+      "capture_ms": 115.7,
+      "serialize_ms": 2.1,
+      "vision_ms": 303.4,
+      "sanitize_ms": 63,
+      "zero_leak_ocr_ms": 611.4,
+      "faces_found": 2,
+      "ocr_hits": 1,
+      "weights_mb": 0,
+      "total_assets_mb": 21.38,
+      "weights_breakdown": "BlazeFace short-range tflite (~0.23 MB) + tesseract eng fast traineddata (~1.98 MB); remainder is WASM runtime glue (MediaPipe + Tesseract), all bundled — no CDN fetches",
+      "notes": "On-device vision live: MediaPipe face blur (Tier C) + region-restricted Tesseract OCR; zero-leak gate = DOM regex scan + OCR of the sanitized screenshot"
+    },
+    "end_to_end_latency": {
+      "weight": 0.15,
+      "metric": "full loop ms/step (capture → serialize → sanitize → upload+VLM → execute)",
+      "vlm_3b_ms": {
+        "capture": {
+          "mean": 137.6
+        },
+        "serialize": {
+          "mean": 0.7
+        },
+        "sanitize": {
+          "mean": 96.9
+        },
+        "upload": {
+          "mean": 8339.5
+        },
+        "vlm": {
+          "mean": 8339.5
+        },
+        "execute": {
+          "mean": 1106.6
+        },
+        "rethink": {
+          "mean": 2479.6
+        }
+      },
+      "vlm_7b_ms": {
+        "capture": {
+          "mean": 116.2
+        },
+        "serialize": {
+          "mean": 1.2
+        },
+        "sanitize": {
+          "mean": 82.8
+        },
+        "upload": {
+          "mean": 17543.5
+        },
+        "vlm": {
+          "mean": 17543.5
+        },
+        "execute": {
+          "mean": 781.5
+        },
+        "rethink": {
+          "mean": 0
+        }
+      },
+      "vlm_routed_ms": {
+        "capture": {
+          "mean": 116.2
+        },
+        "serialize": {
+          "mean": 1.1
+        },
+        "sanitize": {
+          "mean": 104
+        },
+        "upload": {
+          "mean": 12713.8
+        },
+        "vlm": {
+          "mean": 12713.8
+        },
+        "execute": {
+          "mean": 807.7
+        },
+        "rethink": {
+          "mean": 0
+        }
+      },
+      "per_step_e2e_7b_ms": 19421,
+      "target": "p50 < 5000 ms/step (Phase 4)",
+      "hardware_note": "dev box = RTX 3050 4GB VRAM; qwen2.5vl:7b (6.2GB) runs 75% CPU / 25% GPU — image tokens floor at ~1024 so prefill+decode are CPU-bound (~10.5s minimal prompt probe). VLM_MAX_TOKENS=128 + compact system prompt + IMAGE_MAX_SIDE resize reduce context cost; routed mode sends interactive steps to 3b (~7.5–8.0s) and only read/report steps to 7b. Reaching <5s/step requires VRAM ≥ model size (judge hardware), or a GPU-resident small model."
+    }
+  },
+  "scorecard": {
+    "pii_detection": {
+      "f1": 0.979,
+      "ok": true
+    },
+    "redaction": {
+      "precision": 0.959
+    },
+    "visual_context": {
+      "best_rate": 1
+    },
+    "client_resources": {
+      "ok": true,
+      "weights_mb": 0,
+      "total_assets_mb": 21.38
+    },
+    "latency_e2e_7b_ms_per_step": 19421,
+    "latency_routed_ms_per_step": 12714
+  }
+}

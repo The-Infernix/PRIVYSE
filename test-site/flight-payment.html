@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flight booking — payment</title>
+    <style>
+      :root { color-scheme: light; }
+      body { margin: 0; padding: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f1f5f9; color: #0f172a; }
+      header { background: #0ea5e9; color: #fff; padding: 14px 24px; }
+      header h1 { margin: 0; font-size: 18px; }
+      main { max-width: 720px; margin: 24px auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; }
+      h2 { margin: 0 0 16px; font-size: 15px; }
+      .summary { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px; font-size: 13px; color: #0c4a6e; margin-bottom: 20px; }
+      form { display: grid; gap: 14px; }
+      label { display: grid; gap: 5px; font-size: 13px; color: #0f172a; font-weight: 600; }
+      input { border: 1px solid #cbd5e1; border-radius: 7px; padding: 9px 11px; font-size: 14px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .actions { display: flex; justify-content: space-between; margin-top: 10px; }
+      button { background: #0ea5e9; color: #fff; border: 0; border-radius: 7px; padding: 11px 20px; font-size: 14px; font-weight: 600; cursor: pointer; }
+      a { color: #0ea5e9; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <header><h1>SkyGo — flight booking (step 3 of 3)</h1></header>
+    <main>
+      <div class="summary">BLR → DEL · 1 passenger · ₹ 4,299</div>
+      <h2>Payment</h2>
+      <form id="payment-form" action="index.html">
+        <label>Card number
+          <input name="card" autocomplete="cc-number" inputmode="numeric" data-gt="card:4111 1111 1111 1111" value="4111 1111 1111 1111" />
+        </label>
+        <label>Name on card
+          <input name="card_name" autocomplete="cc-name" data-gt="name:Aarav Sharma" value="Aarav Sharma" />
+        </label>
+        <div class="row">
+          <label>Expiry
+            <input name="expiry" placeholder="MM/YY" data-gt="none:12/28" value="12/28" />
+          </label>
+          <label>CVV
+            <input name="cvv" type="password" autocomplete="off" maxlength="3" data-gt="password:123" value="123" />
+          </label>
+        </div>
+        <div class="actions">
+          <a href="flight-booking.html">← Back</a>
+          <button type="submit">Pay ₹ 4,299</button>
+        </div>
+      </form>
+    </main>
+  </body>
+</html>

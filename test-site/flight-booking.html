@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flight booking — passenger details</title>
+    <style>
+      :root { color-scheme: light; }
+      body { margin: 0; padding: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f1f5f9; color: #0f172a; }
+      header { background: #0ea5e9; color: #fff; padding: 14px 24px; }
+      header h1 { margin: 0; font-size: 18px; }
+      main { max-width: 720px; margin: 24px auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; }
+      h2 { margin: 0 0 16px; font-size: 15px; }
+      form { display: grid; gap: 14px; }
+      label { display: grid; gap: 5px; font-size: 13px; color: #0f172a; font-weight: 600; }
+      input { border: 1px solid #cbd5e1; border-radius: 7px; padding: 9px 11px; font-size: 14px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .actions { display: flex; justify-content: space-between; margin-top: 10px; }
+      button { background: #0ea5e9; color: #fff; border: 0; border-radius: 7px; padding: 11px 20px; font-size: 14px; font-weight: 600; cursor: pointer; }
+      a { color: #0ea5e9; font-size: 13px; }
+      .hint { font-size: 11px; color: #94a3b8; font-weight: 400; }
+    </style>
+  </head>
+  <body>
+    <header><h1>SkyGo — flight booking (step 2 of 3)</h1></header>
+    <main>
+      <h2>Passenger details</h2>
+      <form id="passenger-form" action="flight-payment.html">
+        <label>Full name
+          <input name="name" autocomplete="name" data-gt="name:Aarav Sharma" value="Aarav Sharma" />
+        </label>
+        <div class="row">
+          <label>Email address
+            <input name="email" type="email" autocomplete="email" data-gt="email:alice@example.com" value="alice@example.com" />
+          </label>
+          <label>Mobile number
+            <input name="phone" type="tel" autocomplete="tel" data-gt="phone:+91 98765 43210" value="+91 98765 43210" />
+          </label>
+        </div>
+        <div class="row">
+          <label>PAN card
+            <input name="pan" data-gt="pan:ABCDE1234F" value="ABCDE1234F" />
+          </label>
+          <label>Aadhaar number
+            <input name="aadhaar" data-gt="aadhaar:2345 6789 0123" value="2345 6789 0123" />
+          </label>
+        </div>
+        <label>Billing address
+          <input name="address" autocomplete="street-address" data-gt="address:12 MG Road, Bengaluru 560001" value="12 MG Road, Bengaluru 560001" />
+        </label>
+        <div class="actions">
+          <a href="index.html">← Back</a>
+          <button type="submit">Continue to payment</button>
+        </div>
+      </form>
+      <span id="bench-success" style="display:none"></span>
+    </main>
+    <script>
+      (function () {
+        var form = document.getElementById("passenger-form");
+        var success = document.getElementById("bench-success");
+        function check() {
+          var v = new FormData(form);
+          var ok =
+            (v.get("name") || "").toLowerCase() === "aarav sharma" &&
+            (v.get("email") || "") === "alice@example.com" &&
+            (v.get("phone") || "").indexOf("98765") !== -1 &&
+            (v.get("pan") || "") === "ABCDE1234F" &&
+            (v.get("aadhaar") || "").indexOf("6789") !== -1;
+          success.setAttribute("data-complete", ok ? "1" : "0");
+        }
+        form.addEventListener("input", check);
+        check();
+      })();
+    </script>
+  </body>
+</html>

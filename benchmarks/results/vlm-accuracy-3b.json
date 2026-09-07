@@ -1,0 +1,207 @@
+{
+  "generated_at": "2026-09-05T19:29:28.090Z",
+  "server": "http://127.0.0.1:8000",
+  "model": "qwen2.5vl:3b",
+  "steps_budget": 12,
+  "task_success": {
+    "passed": 2,
+    "total": 3,
+    "rate": 0.67
+  },
+  "agent_steps": {
+    "mean": 4.7,
+    "max": 12,
+    "min": 1
+  },
+  "latency_waterfall_ms": {
+    "capture": {
+      "mean": 137.6
+    },
+    "serialize": {
+      "mean": 0.7
+    },
+    "sanitize": {
+      "mean": 96.9
+    },
+    "upload": {
+      "mean": 8339.5
+    },
+    "vlm": {
+      "mean": 8339.5
+    },
+    "execute": {
+      "mean": 1106.6
+    },
+    "rethink": {
+      "mean": 2479.6
+    }
+  },
+  "runs": [
+    {
+      "id": "flight-booking",
+      "success": true,
+      "successMessage": "reached payment step",
+      "expected": "name=arav sharma, email=alice@example.com, phone contains 98765, pan=ABCDE1234F, aadhaar contains 6789, then clicked continue",
+      "steps": 1,
+      "avgLatencyMs": {
+        "capture": 133.9,
+        "serialize": 1,
+        "sanitize": 136.8,
+        "upload": 8339.1,
+        "vlm": 8339.1,
+        "execute": 1223.1,
+        "rethink": 0
+      },
+      "trace": [
+        {
+          "cmd": "click #9",
+          "thought": "The form is filled with the required information, so the next step is to click the 'Continue to payment' button to proceed.",
+          "actionType": "click",
+          "done": false,
+          "blocked": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "bank-transfer",
+      "success": true,
+      "successMessage": "reached transfer details step",
+      "expected": "reaches the transfer details step (beneficiary/account/IFSC page)",
+      "steps": 1,
+      "avgLatencyMs": {
+        "capture": 166.7,
+        "serialize": 0.6,
+        "sanitize": 62,
+        "upload": 7552.5,
+        "vlm": 7552.5,
+        "execute": 1183.5,
+        "rethink": 0
+      },
+      "trace": [
+        {
+          "cmd": "click #5",
+          "thought": "The login credentials are already entered, so the next step is to click the 'Login' button to proceed.",
+          "actionType": "click",
+          "done": false,
+          "blocked": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "pii-in-the-wild",
+      "success": false,
+      "successMessage": "",
+      "expected": "email support@invoices.example, phone +91 99887 76655, pan ZZZPM1234Q, aadhaar 3456 7890 1234",
+      "steps": 12,
+      "avgLatencyMs": {
+        "capture": 112.2,
+        "serialize": 0.5,
+        "sanitize": 91.9,
+        "upload": 9126.8,
+        "vlm": 9126.8,
+        "execute": 913.2,
+        "rethink": 7438.8
+      },
+      "trace": [
+        {
+          "cmd": "click #1",
+          "thought": "The goal is to find the contact email and phone number, PAN, and Aadhaar number. The email and phone number are visible in the 'Contact note",
+          "actionType": "click",
+          "done": false,
+          "blocked": false,
+          "error": null
+        },
+        {
+          "cmd": "scroll",
+          "thought": "The task is to find the contact email and phone number, PAN, and Aadhaar numbers. The current page does not show these details directly. I n",
+          "actionType": "scroll",
+          "done": false,
+          "blocked": false,
+          "error": null
+        },
+        {
+          "cmd": "click #1",
+          "thought": "The goal is to find the contact email and phone number, as well as the PAN and Aadhaar numbers. The email and phone number are likely listed",
+          "actionType": "click",
+          "done": false,
+          "blocked": false,
+          "error": null
+        },
+        {
+          "cmd": "click #0",
+          "thought": "No labelled untried element remains — clicking the first untried element.",
+          "actionType": "click",
+          "done": false,
+          "blocked": true,
+          "error": null
+        },
+        {
+          "cmd": "click #1",
+          "thought": "The goal is to find the contact email and phone number, as well as the PAN and Aadhaar numbers. The email and phone number are likely listed",
+          "actionType": "click",
+          "done": false,
+          "blocked": false,
+          "error": null
+        },
+        {
+          "cmd": "click #2",
+          "thought": "No labelled untried element remains — clicking the first untried element.",
+          "actionType": "click",
+          "done": false,
+          "blocked": true,
+          "error": null
+        },
+        {
+          "cmd": "click #1",
+          "thought": "The goal is to find the contact email and phone number, as well as the PAN and Aadhaar numbers. The email and phone number are typically fou",
+          "actionType": "click",
+          "done": false,
+          "blocked": false,
+          "error": null
+        },
+        {
+          "cmd": "click #3",
+          "thought": "No labelled untried element remains — clicking the first untried element.",
+          "actionType": "click",
+          "done": false,
+          "blocked": true,
+          "error": null
+        },
+        {
+          "cmd": "click #1",
+          "thought": "The goal is to find the contact email and phone number, as well as the PAN and Aadhaar numbers. The email and phone number are likely listed",
+          "actionType": "click",
+          "done": false,
+          "blocked": false,
+          "error": null
+        },
+        {
+          "cmd": "click #4",
+          "thought": "No labelled untried element remains — clicking the first untried element.",
+          "actionType": "click",
+          "done": false,
+          "blocked": true,
+          "error": null
+        },
+        {
+          "cmd": "scroll",
+          "thought": "The goal is to find the contact email, phone number, PAN, and Aadhaar numbers. The current page does not show these details, so I need to sc",
+          "actionType": "scroll",
+          "done": false,
+          "blocked": false,
+          "error": null
+        },
+        {
+          "cmd": "click #5",
+          "thought": "No labelled untried element remains — clicking the first untried element.",
+          "actionType": "click",
+          "done": false,
+          "blocked": true,
+          "error": null
+        }
+      ]
+    }
+  ]
+}

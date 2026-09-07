@@ -1,0 +1,934 @@
+{
+  "generated_at": "2026-09-07T16:32:30.540Z",
+  "pages": [
+    {
+      "page": "flight-booking.html",
+      "domElements": 10,
+      "redactions": 6,
+      "preds": [
+        {
+          "type": "name",
+          "box": [
+            280,
+            159,
+            720,
+            36
+          ],
+          "tier": "B",
+          "token": "[NAME_1]"
+        },
+        {
+          "type": "email",
+          "box": [
+            280,
+            231,
+            353,
+            36
+          ],
+          "tier": "B",
+          "token": "[EMAIL_1]"
+        },
+        {
+          "type": "phone",
+          "box": [
+            647,
+            231,
+            353,
+            36
+          ],
+          "tier": "B",
+          "token": "[PHONE_1]"
+        },
+        {
+          "type": "pan",
+          "box": [
+            280,
+            303,
+            353,
+            36
+          ],
+          "tier": "B",
+          "token": "[PAN_1]"
+        },
+        {
+          "type": "aadhaar",
+          "box": [
+            647,
+            303,
+            353,
+            36
+          ],
+          "tier": "B",
+          "token": "[AADHAAR_1]"
+        },
+        {
+          "type": "address",
+          "box": [
+            280,
+            375,
+            720,
+            36
+          ],
+          "tier": "B",
+          "token": "[ADDRESS_1]"
+        }
+      ],
+      "gt": [
+        {
+          "cat": "name",
+          "value": "Aarav Sharma",
+          "phase2": false,
+          "box": [
+            280,
+            159,
+            720,
+            36
+          ]
+        },
+        {
+          "cat": "email",
+          "value": "alice@example.com",
+          "phase2": false,
+          "box": [
+            280,
+            231,
+            353,
+            36
+          ]
+        },
+        {
+          "cat": "phone",
+          "value": "+91 98765 43210",
+          "phase2": false,
+          "box": [
+            647,
+            231,
+            353,
+            36
+          ]
+        },
+        {
+          "cat": "pan",
+          "value": "ABCDE1234F",
+          "phase2": false,
+          "box": [
+            280,
+            303,
+            353,
+            36
+          ]
+        },
+        {
+          "cat": "aadhaar",
+          "value": "2345 6789 0123",
+          "phase2": false,
+          "box": [
+            647,
+            303,
+            353,
+            36
+          ]
+        },
+        {
+          "cat": "address",
+          "value": "12 MG Road",
+          "phase2": false,
+          "box": [
+            280,
+            375,
+            720,
+            36
+          ]
+        },
+        {
+          "cat": "Bengaluru 560001",
+          "value": "",
+          "phase2": false,
+          "box": [
+            280,
+            375,
+            720,
+            36
+          ]
+        }
+      ],
+      "bodySizeBytes": 60317,
+      "faces": [],
+      "ocrHits": [],
+      "regions": [],
+      "timingsMs": {
+        "serialize": 2.6000000000931323,
+        "vision": 347.39999999990687,
+        "sanitize": 80.1999999997206,
+        "imageGate": 728.7999999998137,
+        "total": 82.79999999981374,
+        "capture": 262
+      }
+    },
+    {
+      "page": "flight-payment.html",
+      "domElements": 8,
+      "redactions": 3,
+      "preds": [
+        {
+          "type": "card",
+          "box": [
+            280,
+            222,
+            720,
+            36
+          ],
+          "tier": "B",
+          "token": "[CARD_1]"
+        },
+        {
+          "type": "name",
+          "box": [
+            280,
+            294,
+            720,
+            36
+          ],
+          "tier": "B",
+          "token": "[NAME_1]"
+        },
+        {
+          "type": "password",
+          "box": [
+            647,
+            366,
+            353,
+            36
+          ],
+          "tier": "A"
+        }
+      ],
+      "gt": [
+        {
+          "cat": "card",
+          "value": "4111 1111 1111 1111",
+          "phase2": false,
+          "box": [
+            280,
+            222,
+            720,
+            36
+          ]
+        },
+        {
+          "cat": "name",
+          "value": "Aarav Sharma",
+          "phase2": false,
+          "box": [
+            280,
+            294,
+            720,
+            36
+          ]
+        },
+        {
+          "cat": "none",
+          "value": "12/28",
+          "phase2": false,
+          "box": [
+            280,
+            366,
+            353,
+            36
+          ]
+        },
+        {
+          "cat": "password",
+          "value": "123",
+          "phase2": false,
+          "box": [
+            647,
+            366,
+            353,
+            36
+          ]
+        }
+      ],
+      "bodySizeBytes": 52862,
+      "faces": [],
+      "ocrHits": [],
+      "regions": [],
+      "timingsMs": {
+        "serialize": 2.099999999627471,
+        "vision": 209.70000000018626,
+        "sanitize": 63.60000000009313,
+        "imageGate": 675,
+        "total": 65.6999999997206,
+        "capture": 87
+      }
+    },
+    {
+      "page": "bank-transfer.html",
+      "domElements": 6,
+      "redactions": 2,
+      "preds": [
+        {
+          "type": "name",
+          "box": [
+            280,
+            159,
+            720,
+            36
+          ],
+          "tier": "B",
+          "token": "[NAME_1]"
+        },
+        {
+          "type": "password",
+          "box": [
+            280,
+            231,
+            720,
+            36
+          ],
+          "tier": "A"
+        }
+      ],
+      "gt": [
+        {
+          "cat": "name",
+          "value": "priya26171",
+          "phase2": false,
+          "box": [
+            280,
+            159,
+            720,
+            36
+          ]
+        },
+        {
+          "cat": "password",
+          "value": "hunter2",
+          "phase2": false,
+          "box": [
+            280,
+            231,
+            720,
+            36
+          ]
+        }
+      ],
+      "bodySizeBytes": 41988,
+      "faces": [],
+      "ocrHits": [],
+      "regions": [],
+      "timingsMs": {
+        "serialize": 1.3000000002793968,
+        "vision": 175.39999999990687,
+        "sanitize": 55.60000000009313,
+        "imageGate": 593.5,
+        "total": 56.90000000037253,
+        "capture": 85
+      }
+    },
+    {
+      "page": "bank-transfer-details.html",
+      "domElements": 8,
+      "redactions": 3,
+      "preds": [
+        {
+          "type": "name",
+          "box": [
+            280,
+            159,
+            720,
+            36
+          ],
+          "tier": "B",
+          "token": "[NAME_1]"
+        },
+        {
+          "type": "account",
+          "box": [
+            280,
+            231,
+            353,
+            36
+          ],
+          "tier": "B",
+          "token": "[ACCOUNT_1]"
+        },
+        {
+          "type": "ifsc",
+          "box": [
+            647,
+            231,
+            353,
+            36
+          ],
+          "tier": "B",
+          "token": "[IFSC_1]"
+        }
+      ],
+      "gt": [
+        {
+          "cat": "name",
+          "value": "Rahul Verma",
+          "phase2": false,
+          "box": [
+            280,
+            159,
+            720,
+            36
+          ]
+        },
+        {
+          "cat": "account",
+          "value": "60234567890123",
+          "phase2": false,
+          "box": [
+            280,
+            231,
+            353,
+            36
+          ]
+        },
+        {
+          "cat": "ifsc",
+          "value": "NOVB0004123",
+          "phase2": false,
+          "box": [
+            647,
+            231,
+            353,
+            36
+          ]
+        },
+        {
+          "cat": "none",
+          "value": "42500",
+          "phase2": false,
+          "box": [
+            280,
+            303,
+            720,
+            36
+          ]
+        }
+      ],
+      "bodySizeBytes": 50379,
+      "faces": [],
+      "ocrHits": [],
+      "regions": [],
+      "timingsMs": {
+        "serialize": 1.7000000001862645,
+        "vision": 188.59999999962747,
+        "sanitize": 54.40000000037253,
+        "imageGate": 625.9000000003725,
+        "total": 56.10000000055879,
+        "capture": 70
+      }
+    },
+    {
+      "page": "bank-transfer-otp.html",
+      "domElements": 5,
+      "redactions": 3,
+      "preds": [
+        {
+          "type": "phone",
+          "box": [
+            394,
+            137,
+            100,
+            17
+          ],
+          "tier": "B",
+          "token": "[PHONE_1]"
+        },
+        {
+          "type": "password",
+          "box": [
+            280,
+            101,
+            720,
+            20
+          ],
+          "tier": "A"
+        },
+        {
+          "type": "password",
+          "box": [
+            280,
+            180,
+            720,
+            36
+          ],
+          "tier": "A"
+        }
+      ],
+      "gt": [
+        {
+          "cat": "password",
+          "value": "482913",
+          "phase2": false,
+          "box": [
+            280,
+            180,
+            720,
+            36
+          ]
+        }
+      ],
+      "bodySizeBytes": 41574,
+      "faces": [],
+      "ocrHits": [],
+      "regions": [],
+      "timingsMs": {
+        "serialize": 1.3999999999068677,
+        "vision": 163.5,
+        "sanitize": 55.89999999990687,
+        "imageGate": 603.8000000002794,
+        "total": 57.299999999813735,
+        "capture": 67
+      }
+    },
+    {
+      "page": "pii-in-the-wild.html",
+      "domElements": 10,
+      "redactions": 10,
+      "preds": [
+        {
+          "type": "email",
+          "box": [
+            535,
+            125,
+            178,
+            19
+          ],
+          "tier": "B",
+          "token": "[EMAIL_1]"
+        },
+        {
+          "type": "phone",
+          "box": [
+            757,
+            125,
+            114,
+            19
+          ],
+          "tier": "B",
+          "token": "[PHONE_1]"
+        },
+        {
+          "type": "pan",
+          "box": [
+            341,
+            292,
+            90,
+            19
+          ],
+          "tier": "B",
+          "token": "[PAN_1]"
+        },
+        {
+          "type": "aadhaar",
+          "box": [
+            689,
+            292,
+            104,
+            19
+          ],
+          "tier": "B",
+          "token": "[AADHAAR_1]"
+        },
+        {
+          "type": "card",
+          "box": [
+            549,
+            644,
+            302,
+            30
+          ],
+          "tier": "B",
+          "token": "[CARD_1]"
+        },
+        {
+          "type": "aadhaar",
+          "box": [
+            591,
+            650,
+            91,
+            17
+          ],
+          "tier": "B",
+          "token": "[AADHAAR_2]"
+        },
+        {
+          "type": "address",
+          "box": [
+            279,
+            459,
+            722,
+            42
+          ],
+          "tier": "B",
+          "token": "[ADDRESS_1]"
+        },
+        {
+          "type": "face",
+          "box": [
+            279,
+            787,
+            100,
+            100
+          ],
+          "tier": "C"
+        },
+        {
+          "type": "face",
+          "box": [
+            397,
+            787,
+            100,
+            100
+          ],
+          "tier": "C"
+        },
+        {
+          "type": "account",
+          "box": [
+            279,
+            1052,
+            362,
+            34
+          ],
+          "tier": "B",
+          "token": "[ACCOUNT_1]"
+        }
+      ],
+      "gt": [
+        {
+          "cat": "email",
+          "value": "support@invoices.example",
+          "phase2": false,
+          "box": [
+            534.5625,
+            125,
+            177.921875,
+            19
+          ]
+        },
+        {
+          "cat": "phone",
+          "value": "+91 99887 76655",
+          "phase2": false,
+          "box": [
+            757.4375,
+            125,
+            114.265625,
+            19
+          ]
+        },
+        {
+          "cat": "pan",
+          "value": "ZZZPM1234Q",
+          "phase2": false,
+          "box": [
+            340.5625,
+            292.375,
+            90.328125,
+            19
+          ]
+        },
+        {
+          "cat": "aadhaar",
+          "value": "3456 7890 1234",
+          "phase2": false,
+          "box": [
+            688.734375,
+            292.375,
+            104.359375,
+            19
+          ]
+        },
+        {
+          "cat": "address",
+          "value": "B-204",
+          "phase2": true,
+          "box": [
+            279,
+            458.75,
+            722,
+            42
+          ]
+        },
+        {
+          "cat": "Green Grove Apartments",
+          "value": "",
+          "phase2": true,
+          "box": [
+            279,
+            458.75,
+            722,
+            42
+          ]
+        },
+        {
+          "cat": "Whitefield",
+          "value": "",
+          "phase2": true,
+          "box": [
+            279,
+            458.75,
+            722,
+            42
+          ]
+        },
+        {
+          "cat": "Bengaluru 560066",
+          "value": "",
+          "phase2": true,
+          "box": [
+            279,
+            458.75,
+            722,
+            42
+          ]
+        },
+        {
+          "cat": "card",
+          "value": "4242 4242 4242 4242",
+          "phase2": false,
+          "box": [
+            549.203125,
+            643.84375,
+            302.40625,
+            30
+          ]
+        },
+        {
+          "cat": "face",
+          "value": "",
+          "phase2": false,
+          "box": [
+            279,
+            786.9375,
+            100,
+            100
+          ]
+        },
+        {
+          "cat": "face",
+          "value": "",
+          "phase2": false,
+          "box": [
+            397,
+            786.9375,
+            100,
+            100
+          ]
+        },
+        {
+          "cat": "account",
+          "value": "EB-CA989766",
+          "phase2": false,
+          "box": [
+            279,
+            1051.53125,
+            362,
+            34
+          ]
+        }
+      ],
+      "bodySizeBytes": 96683,
+      "faces": [
+        [
+          279,
+          787,
+          100,
+          100
+        ],
+        [
+          397,
+          787,
+          100,
+          100
+        ]
+      ],
+      "ocrHits": [
+        {
+          "type": "account",
+          "value": "EB-CA989766",
+          "bbox": [
+            410,
+            1063,
+            95,
+            10
+          ],
+          "region": [
+            279,
+            1052,
+            362,
+            34
+          ]
+        }
+      ],
+      "regions": [
+        [
+          279,
+          787,
+          100,
+          100
+        ],
+        [
+          397,
+          787,
+          100,
+          100
+        ],
+        [
+          279,
+          1000,
+          362,
+          46
+        ],
+        [
+          279,
+          1052,
+          362,
+          34
+        ],
+        [
+          279,
+          1092,
+          362,
+          34
+        ]
+      ],
+      "timingsMs": {
+        "serialize": 3.599999999627471,
+        "vision": 735.6000000000931,
+        "sanitize": 68.20000000018626,
+        "imageGate": 441.3000000002794,
+        "total": 71.79999999981374,
+        "capture": 123
+      }
+    }
+  ],
+  "categories": {
+    "name": {
+      "gtElements": 4,
+      "recallElements": 4,
+      "recallElementPct": 100,
+      "precisionPx": 1,
+      "recallPx": 1,
+      "f1Px": 1
+    },
+    "email": {
+      "gtElements": 2,
+      "recallElements": 2,
+      "recallElementPct": 100,
+      "precisionPx": 0.999,
+      "recallPx": 1,
+      "f1Px": 0.999
+    },
+    "phone": {
+      "gtElements": 2,
+      "recallElements": 2,
+      "recallElementPct": 100,
+      "precisionPx": 0.897,
+      "recallPx": 0.999,
+      "f1Px": 0.945
+    },
+    "pan": {
+      "gtElements": 2,
+      "recallElements": 2,
+      "recallElementPct": 100,
+      "precisionPx": 1,
+      "recallPx": 1,
+      "f1Px": 1
+    },
+    "aadhaar": {
+      "gtElements": 2,
+      "recallElements": 2,
+      "recallElementPct": 100,
+      "precisionPx": 0.905,
+      "recallPx": 1,
+      "f1Px": 0.95
+    },
+    "address": {
+      "gtElements": 2,
+      "recallElements": 2,
+      "recallElementPct": 100,
+      "precisionPx": 1,
+      "recallPx": 1,
+      "f1Px": 1
+    },
+    "card": {
+      "gtElements": 2,
+      "recallElements": 2,
+      "recallElementPct": 100,
+      "precisionPx": 1,
+      "recallPx": 0.999,
+      "f1Px": 1
+    },
+    "password": {
+      "gtElements": 3,
+      "recallElements": 3,
+      "recallElementPct": 100,
+      "precisionPx": 0.818,
+      "recallPx": 1,
+      "f1Px": 0.9
+    },
+    "account": {
+      "gtElements": 2,
+      "recallElements": 2,
+      "recallElementPct": 100,
+      "precisionPx": 1,
+      "recallPx": 1,
+      "f1Px": 1
+    },
+    "ifsc": {
+      "gtElements": 1,
+      "recallElements": 1,
+      "recallElementPct": 100,
+      "precisionPx": 1,
+      "recallPx": 1,
+      "f1Px": 1
+    },
+    "face": {
+      "gtElements": 2,
+      "recallElements": 2,
+      "recallElementPct": 100,
+      "precisionPx": 1,
+      "recallPx": 1,
+      "f1Px": 1
+    }
+  },
+  "overview": {
+    "precisionPx": 0.959,
+    "recallPx": 1,
+    "f1Px": 0.979
+  },
+  "zeroLeak": {
+    "pass": true,
+    "hits": []
+  },
+  "phase2_exposures": [],
+  "phase2_backlog": {
+    "outOfScopeGt": 0,
+    "phase2TaggedGt": 4
+  },
+  "vision": {
+    "faceMs": 218.5,
+    "ocrMs": 79.9,
+    "facesFound": 2,
+    "ocrRegions": 5,
+    "ocrHits": 1,
+    "modelsMB": 21.380807876586914,
+    "skipped": []
+  },
+  "latencyWaterfallMsAvg": {
+    "capture": 115.7,
+    "serialize": 2.1,
+    "vision": 303.4,
+    "sanitize": 63,
+    "imageGate": 611.4,
+    "total": 484.1
+  }
+}

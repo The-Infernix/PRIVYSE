@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SIH 26171 Agent</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">D</div>
+        <div class="brand-text">
+          <h1>SIH Agent</h1>
+          <span class="sub">Privacy Browser Agent</span>
+        </div>
+      </div>
+      <span class="chip chip-teal">Alt+K to command</span>
+    </header>
+
+    <section class="card controls">
+      <label for="task" class="field-label">Task</label>
+      <input id="task" type="text" value="Scroll down the page" spellcheck="false" />
+      <div class="btn-row">
+        <button id="run" class="ghost-btn">Run step</button>
+        <button id="loop" class="primary-btn">Start loop</button>
+      </div>
+      <div class="meta-row">
+        <p class="hint" id="status">Ready</p>
+        <span class="chip chip-teal">Phase 1</span>
+      </div>
+      <label class="toggle-row">
+        <input type="checkbox" id="cursor" checked />
+        <span>
+          <b>Agent cursor</b>
+          <small>Clicky-style</small>
+        </span>
+      </label>
+      <div class="toggle-row">
+        <label for="model" class="field-label">Model</label>
+        <select id="model" class="model-select">
+          <option value="qwen2.5vl:3b">qwen2.5vl:3b</option>
+          <option value="qwen2.5vl:7b">qwen2.5vl:7b</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="card think-card" id="thinkCard">
+      <div class="card-head">
+        <h2>AI thinking</h2>
+        <span id="thinkStatus" class="muted">idle</span>
+      </div>
+      <pre id="thinkBody" class="think-body"></pre>
+    </section>
+
+    <section class="card preview">
+      <div class="card-head">
+        <h2>Last capture</h2>
+        <span id="capSize" class="muted"></span>
+      </div>
+      <img id="shot" alt="last capture" hidden />
+      <p id="noshot" class="hint">No capture yet.</p>
+    </section>
+
+    <section class="card live" id="liveCard">
+      <div class="card-head">
+        <h2>Live activity</h2>
+        <div class="head-actions">
+          <span id="liveDot" class="dot idle"></span>
+          <button id="toggleLive" class="ghost-btn ghost-sm" title="Minimise / expand live activity">–</button>
+        </div>
+      </div>
+      <div class="live-body">
+        <ul id="log"></ul>
+      </div>
+    </section>
+
+    <section class="history">
+      <div class="card-head history-head">
+        <h2>History</h2>
+        <button id="clearHist" class="ghost-btn ghost-sm">Clear</button>
+      </div>
+      <div id="histList"></div>
+    </section>
+  </body>
+</html>
