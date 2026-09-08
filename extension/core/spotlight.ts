@@ -3,6 +3,9 @@
 // real overlay in the current tab — independent of the side panel.
 
 import { SERVER_URL } from "./config";
+import { orb } from "./orb";
+import { lens } from "./privacy-lens";
+import { aiView } from "./ai-view";
 
 const HOST_ID = "sih-spotlight-host";
 const STORAGE_TASK = "sihTask";
@@ -275,6 +278,44 @@ export class SpotlightOverlay {
           const next = enabled !== false ? false : true;
           await browser.storage.local.set({ [STORAGE_CURSOR]: next });
           await browser.runtime.sendMessage({ type: "cursor-toggle", enabled: next });
+        },
+      },
+      {
+        id: "orb-toggle",
+        label: "Toggle PRIVYSE orb",
+        hint: "orb",
+        keywords: "orb floating status dot pill indicator",
+        run: async () => {
+          const { sihOrbEnabled } = (await browser.storage.local.get(
+            "sihOrbEnabled",
+          )) as { sihOrbEnabled?: boolean };
+          const next = sihOrbEnabled === false ? true : false;
+          await browser.storage.local.set({ sihOrbEnabled: next });
+          orb.setEnabled(next);
+        },
+      },
+      {
+        id: "lens-toggle",
+        label: "Scan with Privacy Lens",
+        hint: "privacy",
+        keywords: "lens privacy scan highlight sensitive regions inspect",
+        run: async () => {
+          const next = !lens.active();
+          await browser.storage.local.set({ sihLens: next });
+          if (next) lens.show();
+          else lens.hide();
+        },
+      },
+      {
+        id: "ai-view",
+        label: "Toggle AI View",
+        hint: "ai",
+        keywords: "ai view user mode tokens sanitized preview som set of marks",
+        run: async () => {
+          const next = !aiView.isActive();
+          await browser.storage.local.set({ sihAiView: next });
+          if (next) aiView.enter();
+          else aiView.exit();
         },
       },
       {

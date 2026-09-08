@@ -33,6 +33,10 @@ class VirtualCursor {
   private bubble: HTMLDivElement | null = null;
   private bubbleText: HTMLSpanElement | null = null;
   private caret: HTMLSpanElement | null = null;
+  private tagEl: HTMLDivElement | null = null;
+  private outlineEl: HTMLDivElement | null = null;
+  private outlineTimer: ReturnType<typeof setTimeout> | undefined;
+  private tagTimer: ReturnType<typeof setTimeout> | undefined;
 
   private enabled = true;
   private visible = true;
@@ -98,9 +102,12 @@ class VirtualCursor {
     return { ...this.pos };
   }
 
-  async flyTo(el: Element): Promise<void> {
+  async flyTo(el: Element, label?: string): Promise<void> {
     this.ensure();
     if (!this.enabled) return;
+    if (label) this.setTag(`🧠 ${label}`);
+    const r = el.getBoundingClientRect();
+    this.outline(r);
     const pt = await this.waitStable(el);
     this.ringTarget = pt;
     this.ringAlpha = 0;
@@ -110,11 +117,45 @@ class VirtualCursor {
     });
   }
 
+  /** Show "OBSERVE" phase chip before the cursor flies to a target. */
+  observe(label = "observe") {
+    if (!this.enabled) return;
+    this.setTag(`👁 ${label}`, 900);
+  }
+
+  /** Draw a dashed focus outline around an element rect (viewport coords). */
+  private outline(r: DOMRect) {
+    if (!this.outlineEl) return;
+    this.outlineEl.style.left = `${r.left}px`;
+    this.outlineEl.style.top = `${r.top}px`;
+    this.outlineEl.style.width = `${r.width}px`;
+    this.outlineEl.style.height = `${r.height}px`;
+    this.outlineEl.style.opacity = "1";
+    if (this.outlineTimer) clearTimeout(this.outlineTimer);
+    this.outlineTimer = setTimeout(() => {
+      if (this.outlineEl) this.outlineEl.style.opacity = "0";
+    }, 1400);
+  }
+
+  /** Small phase chip near the cursor (e.g. "SOM 07", "↖ CLICK"). */
+  setTag(text: string, ms = 1200) {
+    if (!this.tagEl) this.ensure();
+    if (!this.tagEl) return;
+    if (!this.enabled) return;
+    this.tagEl.textContent = text;
+    this.tagEl.style.opacity = "1";
+    if (this.tagTimer) clearTimeout(this.tagTimer);
+    this.tagTimer = setTimeout(() => {
+      if (this.tagEl) this.tagEl.style.opacity = "0";
+    }, ms);
+  }
+
   click() {
     if (!this.enabled) return;
     this.pointerDownUntil = performance.now() + 110;
     this.rippleActive = true;
     this.rippleStart = performance.now();
+    this.setTag("↖ CLICK", 700);
     setTimeout(() => {
       this.rippleActive = false;
     }, 420);
@@ -302,6 +343,14 @@ class VirtualCursor {
       by = window.innerHeight - 36;
     }
     this.bubble.style.transform = `translate(${bx}px, ${by}px)`;
+
+    if (this.tagEl) {
+      let tx = this.pos.x + 10;
+      let ty = this.pos.y - 40;
+      if (tx < 4) tx = 4;
+      if (ty < 4) ty = this.pos.y + 16;
+      this.tagEl.style.transform = `translate(${tx}px, ${ty}px)`;
+    }
   }
 
   private setBubble(text: string, typing: boolean) {
@@ -363,6 +412,25 @@ class VirtualCursor {
           vertical-align: -2px; background: #7fc1ff;
           animation: sih-caret 1s steps(1) infinite;
         }
+        .tag {
+          position: absolute; left: 0; top: 0;
+          padding: 3px 8px; border-radius: 6px;
+          background: #0f2c4d; color: #7fd4ff;
+          border: 1px solid rgba(127,212,255,.45);
+          font: 800 11px/1.4 "Segoe UI", system-ui, sans-serif;
+          white-space: nowrap; letter-spacing: .04em;
+          opacity: 0; transition: opacity .16s ease;
+          box-shadow: 0 2px 10px rgba(0,0,0,.45);
+          pointer-events: none;
+        }
+        .outline {
+          position: absolute; left: 0; top: 0;
+          border: 2px solid rgba(51,128,255,.95);
+          border-radius: 6px;
+          box-shadow: 0 0 0 9999px rgba(11,18,32,.12), 0 0 18px rgba(51,128,255,.35);
+          opacity: 0; transition: opacity .2s ease;
+          pointer-events: none;
+        }
         @keyframes sih-caret { 50% { opacity: 0; } }
       </style>
       <div class="arrow">
@@ -375,6 +443,8 @@ class VirtualCursor {
       <div class="ring"></div>
       <div class="ripple"></div>
       <div class="bubble"><span class="bubble-text"></span><span class="caret"></span></div>
+      <div class="tag"></div>
+      <div class="outline"></div>
     `;
     document.documentElement.appendChild(host);
     this.host = host;
@@ -385,6 +455,8 @@ class VirtualCursor {
     this.bubble = root.querySelector(".bubble") as HTMLDivElement;
     this.bubbleText = root.querySelector(".bubble-text") as HTMLSpanElement;
     this.caret = root.querySelector(".caret") as HTMLSpanElement;
+    this.tagEl = root.querySelector(".tag") as HTMLDivElement;
+    this.outlineEl = root.querySelector(".outline") as HTMLDivElement;
   }
 
   private applyVisibility() {

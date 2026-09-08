@@ -1,0 +1,296 @@
+% ---------------------------------------------------------------------------
+% PRIVYSE — On-device Privacy-Preserving Browser Agent
+% SIH 26171 · Pitch document + demo narration script
+% Compile: pdflatex PITCH.tex (twice)
+% ---------------------------------------------------------------------------
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[a4paper,margin=2.1cm,top=2.0cm,bottom=2.2cm]{geometry}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage[framemethod=TikZ]{mdframed}
+\usepackage[hidelinks]{hyperref}
+
+% ---- Palette --------------------------------------------------------------
+\definecolor{navy}{HTML}{0B1220}
+\definecolor{panel}{HTML}{121C31}
+\definecolor{accent}{HTML}{38BDF8}
+\definecolor{teal}{HTML}{34D399}
+\definecolor{violet}{HTML}{A78BFA}
+\definecolor{danger}{HTML}{F87171}
+\definecolor{dim}{HTML}{5B6B8C}
+\definecolor{softbg}{HTML}{F4F7FC}
+
+% ---- Section styling ------------------------------------------------------
+\titleformat{\section}
+  {\Large\bfseries\color{navy}}{\thesection}{0.8em}{}
+  [{\color{accent}\titlerule[1.2pt]}]
+\titlespacing{\section}{0pt}{20pt}{10pt}
+\titleformat{\subsection}
+  {\large\bfseries\color{panel}}{\thesubsection}{0.7em}{}
+\titlespacing{\subsection}{0pt}{14pt}{6pt}
+
+\setlist[itemize]{itemsep=2pt,topsep=4pt,leftmargin=16pt}
+\setlist[enumerate]{itemsep=2pt,topsep=4pt,leftmargin=18pt}
+
+% ---- Custom boxes ----------------------------------------------------------
+\newmdenv[
+  linecolor=accent, linewidth=1pt, backgroundcolor=softbg,
+  innertopmargin=8pt, innerbottommargin=8pt, leftmargin=0pt, rightmargin=0pt,
+  skipabove=8pt, skipbelow=6pt, roundcorner=6pt
+]{voxbox}
+
+\newmdenv[
+  linecolor=teal, linewidth=1pt, backgroundcolor=white,
+  innertopmargin=8pt, innerbottommargin=8pt, leftmargin=0pt, rightmargin=0pt,
+  skipabove=8pt, skipbelow=6pt, roundcorner=6pt
+]{promisebox}
+
+\newcommand{\stage}[3]{%
+  \noindent\begin{minipage}[t]{0.17\textwidth}
+    \centering\footnotesize\bfseries\color{#1}#2\\[2pt]
+    {\color{dim}\scriptsize #3}
+  \end{minipage}\hfill
+}
+
+\newcommand{\kbd}[1]{\texttt{\small #1}}
+
+\title{}
+
+\begin{document}
+
+% ---------------------------------------------------------------------------
+% Header
+% ---------------------------------------------------------------------------
+\begin{center}
+  {\color{navy}\rule{\textwidth}{2.5pt}}\\[14pt]
+  {\Huge\bfseries\color{navy} PRIVYSE}\\[6pt]
+  {\large\color{dim} On-device Privacy-Preserving Browser Agent}\\[10pt]
+  {\small\textbf{SIH 26171} \ $\cdot$ \ Product Pitch \& \ Demo Script}\\[4pt]
+  {\color{teal}\rule{\textwidth}{1pt}}
+\end{center}
+\vspace{6pt}
+
+\begin{voxbox}
+\textbf{One-line pitch.}\quad ``PRIVYSE is a browser agent that
+\textbf{browses the web for you} --- while proving, on your own device, that
+\textbf{your personal data never leaves} it.\,''
+\end{voxbox}
+
+% ---------------------------------------------------------------------------
+% 1. Problem
+% ---------------------------------------------------------------------------
+\section{The Problem}
+
+\begin{itemize}
+  \item \textbf{Generic AI ``computer use'' leaks everything.} Off-the-shelf
+        browser agents capture the raw screen --- every email, phone number,
+        PAN, address, shortlisted result --- and ship those pixels to a
+        hosted model. The user ``wins'' convenience and loses privacy.
+  \item \textbf{The screen is a firehose of personal data.} A single viewport
+        can contain credit-card numbers, Aadhaar/PAN IDs, face photos,
+        OTPs and addresses passim --- all in one screenshot.
+  \item \textbf{Government and enterprise touchpoints are sensitive.}
+        Forms for admissions, applications, banking and PDS are exactly the
+        pages where an agent is most useful \emph{and} most dangerous.
+  \item \textbf{Trust must be demonstrated, not promised.} A privacy claim
+        without visible proof is marketing; judges and users need a
+        \emph{live, on-device gate} they can watch operate.
+\end{itemize}
+
+% ---------------------------------------------------------------------------
+% 2. Solution
+% ---------------------------------------------------------------------------
+\section{The Solution: A Privacy Gate the User Can Watch}
+
+PRIVYSE puts a \textbf{sanitizer} between the camera and the model. Every
+screenshot passes through a five-stage pipeline before anything can leave
+the device:
+
+\vspace{7pt}
+\stage{panel}{CAPTURE}{screen grab}
+\stage{violet}{SANITIZE}{detect + redact}
+\stage{teal}{GATE}{zero-leak OCR}
+\stage{panel}{REASON}{local VLM}
+\stage{violet}{ACT}{click / type}
+\vspace{7pt}
+
+\begin{promisebox}
+\textbf{The gate is fail-closed.}\quad If the verification layer cannot run,
+the step is blocked --- a message is never sent ``best-effort unsanitized.''
+\end{promisebox}
+
+Redaction is tiered on-device:
+
+\begin{itemize}
+  \item \textbf{Tier A --- absolute secrets.} Password, OTP, CVV, API-key
+        fields: solid black boxes, no text, never readable.
+  \item \textbf{Tier B --- personally identifiable information (PII).}
+        Emails, phones, Aadhaar, PAN, Luhn-valid cards, names, addresses:
+        black-boxed \emph{and} replaced with stable tokens
+        (\texttt{[EMAIL\_1]}, \texttt{[PAN\_2]}, \dots). Same value $\Rightarrow$
+        same token, so the model keeps continuity across steps.
+  \item \textbf{Tier C --- faces \& non-DOM text.} MediaPipe BlazeFace runs
+        on-device to blur faces via stacked downscale/upscale; Tesseract OCR
+        scans only image/canvas/video regions the DOM never carries.
+  \item \textbf{Sensitive pages are never captured at all.} Banking,
+        password-reset, and government-ID pages skip the screenshot entirely.
+  \item \textbf{Zero-leak OCR verification.} The \emph{sanitized} image is
+        OCR'd again: if any PII is still readable in the pixels that would be
+        uploaded, the gate reports \textsc{BLOCKED} and the step stops.
+\end{itemize}
+
+% ---------------------------------------------------------------------------
+% 3. Product surface
+% ---------------------------------------------------------------------------
+\section{Product Surface}
+
+\subsection{Side panel --- the control center}
+A cockpit opened with one click: task box, live agent-state pill, the
+5-stage pipeline strip with a \textsc{GATE} node, a privacy hero card
+(detected / protected / raw-values-sent, with the stable-token map shown as
+\texttt{jes***@gmail.com $\rightarrow$ [EMAIL\_1]}), a \emph{before/after}
+``Your screen vs.\ What the AI sees,'' a structured decision trace, a live
+activity log with human-readable lines, and a foldered session history with
+per-run privacy summaries.
+
+\subsection{Spotlight (Alt+K)}
+A page-level command palette: run a task, step once, stop, toggle the cursor,
+switch models, check VLM health, or clear learned lessons --- without leaving
+the tab.
+
+\subsection{Floating PRIVYSE orb}
+When the panel is closed, a draggable status dot floats on the page; during a
+run it expands into a live pill (stage + step counter + pipeline dots) with a
+green \textsc{GATE PASS} / red \textsc{BLOCKED} flash per step. Clicking it
+re-opens the panel. It hides itself during every capture so it never appears
+in a screenshot the model sees.
+
+\subsection{Privacy Lens}
+A one-key scan highlights sensitive regions \emph{live on the page} --- red
+rings with type tags (\texttt{email}, \texttt{pan}, \texttt{card},
+\texttt{address}) --- plus a banner offering \textbf{Show sanitized view}.
+
+\subsection{AI View mode (USER | AI VIEW)}
+Flips the page into exactly what the model sees: PII rewritten to stable
+tokens and Set-of-Marks chips on every interactive element, numbered by the
+same walk as the SoM overlay the VLM is given. Judges literally read the
+agent's viewport.
+
+% ---------------------------------------------------------------------------
+% 4. Trust & safety
+% ---------------------------------------------------------------------------
+\section{Trust \& Safety Guarantees}
+
+\begin{itemize}
+  \item \textbf{Everything sensitive happens on-device.} Detection, tokenizing,
+        face-blurring, OCR verification --- all in the extension. The server
+        receives only the sanitized JPEG and the tokenized DOM snapshot.
+  \item \textbf{Raw values are never uploaded.} The outbound payload is
+        scanned (\texttt{assertNoLeaks}) before sending; zero raw values sent
+        is a live (and visible) metric.
+  \item \textbf{Fail-closed everywhere.} Vision host down $\rightarrow$ degrades
+        to DOM-only redaction; the layer-2 OCR gate unavailable $\rightarrow$
+        the DOM-level gate still enforces; a blocked step is never emailed out.
+  \item \textbf{Visible receipts.} Every step logs what was redacted, which
+        tokens mapped from which masked values, and the gate verdict.
+\end{itemize}
+
+% ---------------------------------------------------------------------------
+% 5. Tech stack
+% ---------------------------------------------------------------------------
+\section{Tech Stack}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l X l}
+\toprule
+\textbf{Layer} & \textbf{Choice} & \textbf{Why the judges care} \\
+\midrule
+Extension & WXT $\cdot$ Chrome MV3 & modern, fast, single manifest \\
+On-device vision & MediaPipe BlazeFace + Tesseract.js (WASM) & faces blurred / image-region text redacted without a server \\
+Orchestration & MV3 service worker + offscreen vision host & rate-limit-aware capture, warm model preload \\
+Agent loop & adaptive: /act + /rethink, stuck / no-progress detection & never spin forever; self-recovers \\
+Local VLM & Ollama Qwen2.5-VL via FastAPI (SSE stream) & model choice is dropdown-selectable \\
+Recovery layer & site-level lesson memory, auto-type escalator & the demo rarely gets ``stuck'' in front of a judge \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ---------------------------------------------------------------------------
+% 6. Demo script
+% ---------------------------------------------------------------------------
+\section{Live Demo Script (60--90 seconds)}
+
+\begin{enumerate}[leftmargin=20pt]
+  \item \textbf{Open a real form page} (application / checkout / search with a
+        visible email + phone already typed in).
+        \emph{``Every screenshot of this page contains personal data. Watch
+        what happens to it.''}
+  \item \textbf{Press \kbd{Alt+K}, type a task, run.} Spotlight launches the
+        loop right on the page.
+  \item \textbf{Watch the pipeline light up.} \textsc{CAPTURE
+        $\rightarrow$ SANITIZE $\rightarrow$ GATE $\rightarrow$ REASON
+        $\rightarrow$ ACT} on the panel --- call out each stage as it fires.
+  \item \textbf{Freeze on the privacy hero.} ``\emph{N} detected,
+        \emph{N} protected, \emph{0} raw values sent.'' Point at a token row:
+        \texttt{jes***@gmail.com $\rightarrow$ [EMAIL\_1]} (the masked form is
+        the \emph{only} representation of that value that has ever been shown).
+  \item \textbf{Open the before/after card.} ``Your screen --- what the AI
+        sees.'' The model's viewport is clean.
+  \item \textbf{Enable Privacy Lens} on the live page. Red rings + type tags
+        appear over the exact regions just protected.
+  \item \textbf{Toggle \textsc{AI VIEW}.} The page itself becomes the model's
+        view: tokens in prose, SoM chips on every interactive element.
+        \emph{``This is literally the pixel stream the model reasons over.''}
+  \item \textbf{Close the panel --- the orb takes over.} It tracks the run live;
+        click it to reopen the cockpit.
+  \item \textbf{End on a gate pass.} Green \textsc{GATE PASS}; task complete,
+        decision trace shows the goal / observed / protected / target SoM /
+        action / result.
+\end{enumerate}
+
+\begin{voxbox}
+\textbf{Close-out line.}\quad ``Work is done when the task is done --- and
+the person whose data was on that screen \emph{saw} that nothing left the
+device. That is the difference between \emph{``trust us\,''} and
+\emph{``watch us.\,''\,''}
+\end{voxbox}
+
+% ---------------------------------------------------------------------------
+% 7. Why PRIVYSE wins
+% ---------------------------------------------------------------------------
+\section{Why PRIVYSE Stands Out}
+
+\begin{itemize}
+  \item \textbf{Provable privacy, not perceived.} A live, judge-visible gate
+        with receipts on every step.
+  \item \textbf{Fully on-device redaction.} No private pixels ever travel; the
+        VLM is local and optional/swap-able.
+  \item \textbf{Works on \emph{real pixels}, not just DOM text.} Faces,
+        canvases, videos and image regions are covered --- the failure mode
+        generic agents ignore.
+  \item \textbf{Product, not a script.} Side panel, spotlight, orb, lens, AI
+        View, histories, model selector --- a complete user experience out of
+        the box.
+  \item \textbf{Self-growing.} The agent learns site-level lessons from its
+        own mistakes and never repeats them.
+\end{itemize}
+
+\vspace{8pt}
+\begin{center}
+{\color{dim}\small PRIVYSE $\cdot$ SIH 26171 $\cdot$ ``Your screen never leaves
+--- and you can watch it.''}
+\end{center}
+
+\end{document}

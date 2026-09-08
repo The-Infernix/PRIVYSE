@@ -35,6 +35,9 @@ export interface RedactionLogEntry {
   token?: string;
   bbox: [number, number, number, number];
   source: "dom" | "text" | "vision";
+  /** Partially-masked display of the raw value (ON-DEVICE only, for the
+   * stable-token card). e.g. "jes***@gmail.com". Absent for face blurs. */
+  masked?: string;
 }
 
 /** On-device vision output (Phase 2), produced by core/vision.ts. */
@@ -63,6 +66,34 @@ function tokenFor(type: string, value: string): string {
   const token = `[${type.toUpperCase()}_${n}]`;
   tokenMap.set(value, token);
   return token;
+}
+
+/** Partially-masked display of a raw PII value — enough to be meaningful on
+ * the panel's stable-token card, never the raw value itself. */
+function maskPiiValue(value: string): string {
+  const v = value.trim();
+  if (!v) return "";
+  if (v.includes("@")) {
+    const i = v.indexOf("@");
+    const local = v.slice(0, i);
+    const host = v.slice(i);
+    const ml =
+      local.length <= 2
+        ? (local[0] ?? "").padEnd(3, "*")
+        : `${local.slice(0, 3)}***`;
+    return ml + host;
+  }
+  const digitAt: number[] = [];
+  for (let k = 0; k < v.length; k++) if (/[0-9]/.test(v[k])) digitAt.push(k);
+  if (digitAt.length >= 4) {
+    const keep = new Set(digitAt.slice(-4));
+    let out = "";
+    for (let k = 0; k < v.length; k++) {
+      out += keep.has(k) ? v[k] : /[0-9]/.test(v[k]) ? "X" : v[k];
+    }
+    return out;
+  }
+  return `${v.slice(0, 2)}…`;
 }
 
 /** Replace PII within a text string with stable tokens. */
@@ -251,6 +282,7 @@ export function sweepDocumentPii(
         token: rr.token,
         bbox,
         source: "text",
+        masked: maskPiiValue(rr.value),
       });
     }
   }
@@ -272,6 +304,7 @@ export function sweepDocumentPii(
         token,
         bbox: scaled(rect),
         source: "text",
+        masked: maskPiiValue(raw),
       });
     }
     addressList.push({ el, token });
@@ -339,6 +372,7 @@ export async function sanitizeForUpload(
       token: tokenFor(h.type, h.value),
       bbox: h.region ?? h.bbox,
       source: "vision",
+      masked: maskPiiValue(h.value),
     });
   }
 
@@ -372,6 +406,7 @@ export async function sanitizeForUpload(
             token: rr.token,
             bbox: el.bbox,
             source: "dom",
+            masked: maskPiiValue(rr.value),
           });
         }
       } else {
@@ -386,6 +421,7 @@ export async function sanitizeForUpload(
           token,
           bbox: el.bbox,
           source: "dom",
+          masked: maskPiiValue(el.value),
         });
       }
     }
@@ -403,6 +439,7 @@ export async function sanitizeForUpload(
             token: rr.token,
             bbox: el.bbox,
             source: "text",
+            masked: maskPiiValue(rr.value),
           });
         }
       }

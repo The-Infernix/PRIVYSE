@@ -25,3 +25,4 @@ clicky-windows/
 
 # LaTeX build collateral
 *.aux
+*.out

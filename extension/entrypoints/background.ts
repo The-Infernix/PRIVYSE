@@ -9,6 +9,7 @@ import { isSensitivePage } from "@/core/sensitive-pages";
 import { resetVerifiedTargets, getVerifiedTargets, resetClickedTypeables, isKnownTypeable, describeKnownTypeable } from "@/core/executor";
 import type {
   AgentAction,
+  AgentStage,
   DomElement,
   ExtMessage,
   ExecuteActionMsg,
@@ -29,6 +30,10 @@ const MAX_RETHINK_ATTEMPTS = 3; // give up only if rethink keeps failing to chan
 const DEFAULT_MODEL = "qwen2.5vl:3b";
 const STORAGE_MODEL = "sihModel";
 const STORAGE_LESSONS = "sihLessons";
+const STORAGE_MAX_STEPS = "sihMaxSteps";
+const STORAGE_SHOT_QUALITY = "sihShotQuality";
+const DEFAULT_MAX_STEPS = 50;
+const DEFAULT_SHOT_QUALITY = 50;
 const RESTRICTED_URL_RE =
   /^(chrome:|about:|edge:|devtools:|view-source:|chrome-extension:|moz-extension:)/i;
 
@@ -333,15 +338,45 @@ export default defineBackground(() => {
       .catch(() => {});
   }
 
-  async function status(step: number) {
+  async function status(step: number, max: number = MAX_STEPS) {
     await browser.runtime
       .sendMessage({
         type: "loop-status",
         running: loopRunning,
         step,
-        maxSteps: MAX_STEPS,
+        maxSteps: max,
       } satisfies ExtMessage)
       .catch(() => {});
+  }
+
+  // Live phase broadcast → side panel header status + pipeline strip.
+  async function stage(s: AgentStage, text?: string) {
+    await browser.runtime
+      .sendMessage({ type: "agent-stage", stage: s, text } satisfies ExtMessage)
+      .catch(() => {});
+  }
+
+  function actionLabel(a: AgentAction): string {
+    switch (a.type) {
+      case "click":
+        return `CLICK(#${a.target})`;
+      case "type":
+        return `TYPE(#${a.target}, "${a.text}")`;
+      case "press":
+        return `PRESS(${a.key})`;
+      case "scroll":
+        return `SCROLL(${a.direction})`;
+      case "navigate":
+        return `NAVIGATE(${a.url})`;
+      case "wait":
+        return `WAIT(${a.ms}ms)`;
+      case "extract":
+        return `EXTRACT("${a.text}")`;
+      case "done":
+        return `DONE${a.answer ? `: "${a.answer}"` : ""}`;
+      default:
+        return JSON.stringify(a);
+    }
   }
 
   // ── Model selection (shared via chrome.storage.local: "sihModel") ─────
@@ -354,6 +389,30 @@ export default defineBackground(() => {
       return typeof m === "string" && m ? m : DEFAULT_MODEL;
     } catch {
       return DEFAULT_MODEL;
+    }
+  }
+
+  async function readMaxSteps(): Promise<number> {
+    try {
+      const { [STORAGE_MAX_STEPS]: v } = (await browser.storage.local.get(STORAGE_MAX_STEPS)) as {
+        [STORAGE_MAX_STEPS]?: number;
+      };
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 1 && n <= 200 ? Math.floor(n) : DEFAULT_MAX_STEPS;
+    } catch {
+      return DEFAULT_MAX_STEPS;
+    }
+  }
+
+  async function readShotQuality(): Promise<number> {
+    try {
+      const { [STORAGE_SHOT_QUALITY]: v } = (await browser.storage.local.get(
+        STORAGE_SHOT_QUALITY,
+      )) as { [STORAGE_SHOT_QUALITY]?: number };
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 1 && n <= 100 ? Math.floor(n) : DEFAULT_SHOT_QUALITY;
+    } catch {
+      return DEFAULT_SHOT_QUALITY;
     }
   }
 
@@ -516,6 +575,7 @@ export default defineBackground(() => {
     // 1) Capture screenshot (lower quality for speed). Chrome's captureVisibleTab
     // is rate-limited (~2 calls/sec), and rethink re-captures right after a
     // failure — enforce a 1s gap so the quota error can't abort the recovery.
+    await stage("capturing", `Capturing "${tab.title}"…`);
     await log("info", `${prefix}Capturing screenshot of "${tab.title}"…`);
     const sinceCapture = Date.now() - lastCaptureAt;
     if (sinceCapture >= 0 && sinceCapture < CAPTURE_MIN_GAP_MS) {
@@ -528,7 +588,7 @@ export default defineBackground(() => {
     lastCaptureAt = Date.now();
     const dataUrl = await browser.tabs.captureVisibleTab(tab.windowId, {
       format: "jpeg",
-      quality: 50,
+      quality: await readShotQuality(),
     });
     await browser.tabs
       .sendMessage(tab.id, { type: "cursor-show" } satisfies ExtMessage)
@@ -579,6 +639,7 @@ export default defineBackground(() => {
     }
 
     // 3) Sanitize + SoM overlay (the privacy gate)
+    await stage("sanitizing", "Protecting your data before anything leaves this device…");
     await log("info", `${prefix}Sanitizing PII + drawing SoM overlay…`);
 
     // 3a) On-device vision (Phase 2): face detection always runs; OCR only on
@@ -655,6 +716,9 @@ export default defineBackground(() => {
     // actually be uploaded. Only pages with non-DOM surfaces pay the OCR cost
     // (DOM-covered text is already covered by the layer-1 scan). Fail-closed:
     // if the gate cannot run, the step is blocked, never sent unsanitized.
+    // zeroLeak summarises the gate outcome for the side panel privacy card.
+    await stage("verifying", "Running zero-leak verification on the sanitized payload…");
+    let zeroLeak: boolean | null = imageRegions.length === 0;
     if (imageRegions.length > 0 && visionHostAvailable()) {
       const tGate = Date.now();
       await log("info", `${prefix}Running zero-leak OCR gate on sanitized image…`);
@@ -683,9 +747,11 @@ export default defineBackground(() => {
         const why = g.error ?? (g.hits ?? []).map((h) => h.type).join(", ");
         throw new Error(`Blocked: zero-leak image gate failed (${why || "unknown"})`);
       }
+      zeroLeak = true;
       const gateDur = Math.round((Date.now() - tGate) / 100) / 10;
       await log("info", `${prefix}Zero-leak gate done in ${gateDur}s`);
     } else if (imageRegions.length > 0) {
+      zeroLeak = null;
       await log(
         "info",
         `${prefix}Zero-leak OCR gate skipped (vision host down) — DOM-layer gate still enforced.`,
@@ -704,9 +770,60 @@ export default defineBackground(() => {
       await log("info", `${prefix}No PII detected`);
     }
 
+    // Structured privacy summary → hero card (all device-local metrics).
+    const typeCounts = new Map<string, number>();
+    for (const r of payload.redactions) {
+      const k = r.source === "vision" ? "image" : r.type;
+      typeCounts.set(k, (typeCounts.get(k) ?? 0) + 1);
+    }
+    const faces = Array.isArray(vision?.faces) ? vision.faces.length : 0;
+
+    // Stable-token map for the hero card (masked value → [TOKEN_n]). Built
+    // from the on-device redaction log; only the masked form reaches this panel.
+    const seenTokens = new Set<string>();
+    const tokens: { type: string; masked: string; token: string }[] = [];
+    for (const r of payload.redactions) {
+      if (r.token && r.masked && !seenTokens.has(r.token)) {
+        seenTokens.add(r.token);
+        tokens.push({ type: r.type, masked: r.masked, token: r.token });
+      }
+    }
+
+    // Before/after proof — the ORIGINAL capture renders only inside this
+    // extension panel (never uploaded); the sanitized one is what the VLM sees.
+    const sanitizedPreview = "data:image/jpeg;base64," + payload.screenshot_b64;
+    const payloadKb = Math.round(
+      (payload.screenshot_b64.length * 3) / 4 / 1024,
+    );
+    await browser.runtime
+      .sendMessage({
+        type: "capture-preview",
+        original: dataUrl,
+        sanitized: sanitizedPreview,
+        payloadKb,
+        protected: payload.redactions?.length ?? 0,
+      } satisfies ExtMessage)
+      .catch(() => {});
+
+    await browser.runtime
+      .sendMessage({
+        type: "privacy",
+        detected: (payload.redactions?.length ?? 0) + faces,
+        redacted: payload.redactions?.length ?? 0,
+        faces,
+        facesBlurred: faces,
+        zeroLeak,
+        gate: zeroLeak === true ? "pass" : zeroLeak === null ? "skip" : "block",
+        rawValuesSent: 0,
+        byType: [...typeCounts.entries()].map(([type, count]) => ({ type, count })),
+        tokens,
+      } satisfies ExtMessage)
+      .catch(() => {});
+
     // 4) Send to server (streamed so we relay the model's thinking live)
     const label = mode === "rethink" ? "Asking for an alternative plan" : "Sending to VLM";
     await log("info", `${prefix}${label} (${body.dom.length} DOM elements, ${kb} KB screenshot)…`);
+    await stage("reasoning", `Reasoning over ${body.dom.length} sanitized elements…`);
     browser.runtime.sendMessage({ type: "think-start" }).catch(() => {});
     const data = await callActStream(body, (delta) => {
       thinkBuf += delta;
@@ -716,8 +833,26 @@ export default defineBackground(() => {
     await log("info", `${prefix}🧠 VLM thought: ${data.thought}`);
     browser.runtime.sendMessage({ type: "think-end", thought: data.thought }).catch(() => {});
     // Show the SANITIZED screenshot (what the VLM saw): overlay + redactions.
-    const sanitizedPreview = "data:image/jpeg;base64," + payload.screenshot_b64;
     await log("info", `${prefix}→ Action: ${JSON.stringify(data.action)}`, sanitizedPreview);
+    await stage("acting", "Executing on the page…");
+
+    // Structured decision trace → "Agent decision" card.
+    const targetEl = (body.dom ?? []).find(
+      (d) => d.id === (data.action as { target?: number }).target,
+    );
+    await browser.runtime
+      .sendMessage({
+        type: "decision",
+        observed: body.dom.length,
+        protected: payload.redactions?.length ?? 0,
+        subgoal: data.subgoal,
+        thought: data.thought,
+        action: actionLabel(data.action),
+        target: targetEl
+          ? { id: targetEl.id, desc: targetEl.label || targetEl.text?.slice(0, 40) }
+          : undefined,
+      } satisfies ExtMessage)
+      .catch(() => {});
 
     // 5) Execute action in the tab
     await log("info", `${prefix}Executing ${data.action.type}…`);
@@ -734,6 +869,11 @@ export default defineBackground(() => {
       throw err;
     }
     await log("success", `${prefix}Done: ${result}`);
+
+    // Post-execution result row for the decision card.
+    await browser.runtime
+      .sendMessage({ type: "decision-result", result } satisfies ExtMessage)
+      .catch(() => {});
 
     // Progress fingerprint: cheap signature of the current visible DOM state.
     // Used by runLoop to detect "page hasn't changed" even when the action
@@ -809,6 +949,7 @@ export default defineBackground(() => {
   }
 
   async function runLoop(task: string) {
+    const maxSteps = await readMaxSteps();
     const history: HistoryStep[] = [];
     let consecutiveFailures = 0;
     const recentActions: string[] = []; // for stuck detection
@@ -863,7 +1004,7 @@ export default defineBackground(() => {
       action: AgentAction,
       task: string,
       history: HistoryStep[],
-      subgoal: string,
+      subgoal: string | undefined,
       warnings: string[],
     ): Promise<boolean> {
       if (action.type !== "click" || !isKnownTypeable(action.target)) return false;
@@ -918,18 +1059,18 @@ export default defineBackground(() => {
 
     await log(
       "info",
-      `Adaptive loop started (budget ${MAX_STEPS} steps; auto-recovers when stuck or blocked)`,
+      `Adaptive loop started (budget ${maxSteps} steps; auto-recovers when stuck or blocked)`,
     );
-    await status(0);
+    await status(0, maxSteps);
     thinkBuf = "";
 
-    for (let step = 0; step < MAX_STEPS; step++) {
+    for (let step = 0; step < maxSteps; step++) {
       if (loopAbort) {
         await log("info", `Loop stopped by user at step ${step}.`);
         break;
       }
 
-      await status(step + 1);
+      await status(step + 1, maxSteps);
 
       try {
         const { ok, done, result, action, subgoal, blocked, domFingerprint } = await executeStep(
@@ -1070,7 +1211,7 @@ export default defineBackground(() => {
             );
           } else {
             // Normal step — nothing to recover from.
-            if (step < MAX_STEPS - 1 && !loopAbort) {
+if (step < maxSteps - 1 && !loopAbort) {
               await log("info", `Waiting 750ms before next step…`);
               await new Promise((r) => setTimeout(r, THROTTLE_MS));
             }
@@ -1162,14 +1303,14 @@ export default defineBackground(() => {
       }
 
       // Throttle — respect Chrome's captureVisibleTab rate limit
-      if (step < MAX_STEPS - 1 && !loopAbort) {
+      if (step < maxSteps - 1 && !loopAbort) {
         await log("info", `Waiting 750ms before next step…`);
         await new Promise((r) => setTimeout(r, THROTTLE_MS));
       }
     }
 
     loopRunning = false;
-    await status(0);
+    await status(0, maxSteps);
     await log("info", "Loop finished.");
   }
 });

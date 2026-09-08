@@ -4,6 +4,16 @@
 
 export const PROTOCOL_VERSION = 1;
 
+/** Live agent phase, surfaced as the header status + pipeline strip. */
+export type AgentStage =
+  | "ready"
+  | "capturing"
+  | "sanitizing"
+  | "verifying"
+  | "reasoning"
+  | "acting"
+  | "done";
+
 // ---------------------------------------------------------------------------
 // Action protocol — the only thing the server may ask the client to do.
 // ---------------------------------------------------------------------------
@@ -119,7 +129,47 @@ export type ExtMessage =
   // VLM "thinking" stream → side panel live readout
   | { type: "think-start" }
   | { type: "think-delta"; text: string }
-  | { type: "think-end"; thought: string };
+  | { type: "think-end"; thought: string }
+  // Live agent phase (header status + pipeline strip)
+  | { type: "agent-stage"; stage: AgentStage; text?: string }
+  // Privacy gate summary for the hero card (device-local, judged-friendly)
+  | {
+      type: "privacy";
+      detected: number;
+      redacted: number;
+      faces: number;
+      facesBlurred: number;
+      /** true = gate passed, null = image gate not run this step, false = blocked */
+      zeroLeak: boolean | null;
+      /** Human-facing gate verdict. */
+      gate: "pass" | "block" | "skip";
+      /** Always 0 while assertNoLeaks is the hard gate. */
+      rawValuesSent: number;
+      byType: { type: string; count: number }[];
+      /** Stable-token map: masked raw value → [TOKEN_n] (device-local, never sent). */
+      tokens: { type: string; masked: string; token: string }[];
+    }
+  // Structured decision trace (index-card version of the raw reasoning)
+  | {
+      type: "decision";
+      observed: number;
+      protected: number;
+      subgoal?: string;
+      thought: string;
+      action: string;
+      target?: { id: number; desc: string };
+    }
+  // Post-execution result for the decision card's Result row
+  | { type: "decision-result"; result: string }
+  // Before/after proof for the "What the AI sees" card. The ORIGINAL capture
+  // is shown only on-device (this panel) — nothing outbound changed.
+  | {
+      type: "capture-preview";
+      original: string;
+      sanitized: string;
+      payloadKb: number;
+      protected: number;
+    };
 
 /** background → content script */
 export interface ExecuteActionMsg {

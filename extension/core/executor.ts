@@ -111,7 +111,8 @@ function dispatchClick(el: Element) {
 
 async function clickElement(el: Element, knownId = -1) {
   el.scrollIntoView({ block: "center", behavior: "smooth" });
-  await cursor.flyTo(el);
+  cursor.observe("observe");
+  await cursor.flyTo(el, knownId >= 0 ? `SOM ${knownId}` : undefined);
   cursor.click();
   dispatchClick(el);
 
@@ -153,7 +154,8 @@ async function typeInto(el: Element, text: string) {
 
   target.scrollIntoView({ block: "center", behavior: "smooth" });
 
-  await cursor.flyTo(target);
+  cursor.observe("observe");
+  await cursor.flyTo(target, `SOM ${indexOfElement(target)}`);
   cursor.click();
 
   // Click the element first to focus + activate it (important for SPAs)

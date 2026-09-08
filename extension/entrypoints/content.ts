@@ -4,9 +4,30 @@ import { sweepDocumentPii, type RedactionLogEntry } from "@/core/sanitizer";
 import { collectImageRegions } from "@/core/dom-common";
 import { cursor } from "@/core/virtual-cursor";
 import { spotlight } from "@/core/spotlight";
-import type { AgentAction } from "@/core/protocol";
+import { orb } from "@/core/orb";
+import { lens } from "@/core/privacy-lens";
+import { aiView } from "@/core/ai-view";
+import type { AgentAction, AgentStage } from "@/core/protocol";
 
 const STORAGE_CURSOR = "sihCursorEnabled";
+const STORAGE_ORB = "sihOrbEnabled";
+const STORAGE_LENS = "sihLens";
+const STORAGE_AI_VIEW = "sihAiView";
+
+function applyPrefs(changes: Record<string, { newValue?: unknown }>, area: string) {
+  if (area !== "local") return;
+  if (STORAGE_ORB in changes) {
+    orb.setEnabled(changes[STORAGE_ORB].newValue !== false);
+  }
+  if (STORAGE_LENS in changes) {
+    if (changes[STORAGE_LENS].newValue === true) lens.show();
+    else lens.hide();
+  }
+  if (STORAGE_AI_VIEW in changes) {
+    if (changes[STORAGE_AI_VIEW].newValue === true) aiView.enter();
+    else aiView.exit();
+  }
+}
 
 export default defineContentScript({
   matches: ["<all_urls>"],
@@ -42,10 +63,16 @@ export default defineContentScript({
       }
       if (msg?.type === "cursor-hide") {
         cursor.setVisible(false);
+        orb.setVisible(false);
+        lens.setVisible(false);
+        aiView.setVisible(false);
         return Promise.resolve(true);
       }
       if (msg?.type === "cursor-show") {
         cursor.setVisible(true);
+        orb.setVisible(true);
+        lens.setVisible(true);
+        aiView.setVisible(true);
         return Promise.resolve(true);
       }
       if (msg?.type === "cursor-toggle" && msg.enabled !== undefined) {
@@ -53,24 +80,49 @@ export default defineContentScript({
         return Promise.resolve(true);
       }
       if (msg?.type === "spotlight") {
-        console.log("[spotlight] content script received message");
         void spotlight.open(cursor.getPosition() ?? undefined).then(() => {
-          console.log("[spotlight] overlay opened", cursor.getPosition());
+          // no-op: overlay opened
         });
         return Promise.resolve(true);
       }
+      // Live agent-status broadcasts (also consumed by the side panel) drive
+      // the floating orb on the page.
+      if (msg?.type === "loop-status") {
+        orb.setLoop(
+          (msg as { running?: boolean }).running === true,
+          (msg as { step?: number }).step ?? 0,
+          (msg as { maxSteps?: number }).maxSteps ?? 0,
+        );
+      }
+      if (msg?.type === "agent-stage") {
+        orb.setStage((msg as { stage?: AgentStage }).stage ?? "ready");
+      }
+      if (msg?.type === "privacy") {
+        orb.setGate((msg as { gate?: "pass" | "block" | "skip" }).gate ?? "skip");
+      }
     });
 
-    // Restore the agent-cursor preference from shared storage. When enabled,
-    // the cursor is shown immediately (and follows the mouse) so it's present
-    // even before any loop runs.
+    // Survivability overlays: the orb lives from page load (it's how the agent
+    // is re-opened once the side panel is closed).
+    orb.ensure();
+
+    // Restore persisted preferences from shared storage. The orb defaults to
+    // ON (unlike the cursor it's the only page-side control when the panel
+    // is closed); the lens and AI View only restore when the judge enabled
+    // them in the side panel.
     browser.storage.local
-      .get(STORAGE_CURSOR)
+      .get([STORAGE_CURSOR, STORAGE_ORB, STORAGE_LENS, STORAGE_AI_VIEW])
       .then((r) => {
-        const enabled = r[STORAGE_CURSOR] !== false;
-        cursor.setEnabled(enabled);
-        if (enabled) cursor.ensure();
+        const cursorEnabled = r[STORAGE_CURSOR] !== false;
+        cursor.setEnabled(cursorEnabled);
+        if (cursorEnabled) cursor.ensure();
+
+        orb.setEnabled(r[STORAGE_ORB] !== false);
+        if (r[STORAGE_LENS] === true) lens.show();
+        if (r[STORAGE_AI_VIEW] === true) aiView.enter();
       })
       .catch(() => {});
+
+    browser.storage.onChanged.addListener(applyPrefs);
   },
 });

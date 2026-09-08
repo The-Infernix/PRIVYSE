@@ -3,72 +3,179 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SIH 26171 Agent</title>
+    <title>PRIVYSE — On-device Browser Agent</title>
     <link rel="stylesheet" href="./style.css" />
     <script type="module" src="./main.ts"></script>
   </head>
   <body>
+    <!-- ── Top bar ─────────────────────────────────────────────── -->
     <header class="topbar">
       <div class="brand">
-        <div class="logo">D</div>
+        <div class="logo">🛡</div>
         <div class="brand-text">
-          <h1>SIH Agent</h1>
-          <span class="sub">Privacy Browser Agent</span>
+          <h1>PRIVYSE</h1>
+          <span class="sub">On-device Browser Agent</span>
         </div>
       </div>
-      <span class="chip chip-teal">Alt+K to command</span>
+      <div class="top-actions">
+        <div class="view-toggle" id="viewToggle" title="Preview the page as the agent sees it">
+          <span class="seg seg-user" data-view="user">USER</span>
+          <span class="seg seg-ai" data-view="ai">AI VIEW</span>
+        </div>
+        <span id="agentState" class="chip chip-status" data-state="ready"><span class="live-dot"></span><span id="agentStateText">READY</span></span>
+        <span class="chip chip-teal">Alt+K</span>
+      </div>
     </header>
 
+    <!-- ── Task controls ───────────────────────────────────────── -->
     <section class="card controls">
-      <label for="task" class="field-label">Task</label>
-      <input id="task" type="text" value="Scroll down the page" spellcheck="false" />
+      <label for="task" class="field-label">What should I do?</label>
+      <input id="task" type="text" value="Scroll down the page" spellcheck="false"
+        placeholder="e.g. Fill the application form and submit" />
       <div class="btn-row">
         <button id="run" class="ghost-btn">Run step</button>
-        <button id="loop" class="primary-btn">Start loop</button>
+        <button id="loop" class="primary-btn">▶ Start agent</button>
       </div>
       <div class="meta-row">
         <p class="hint" id="status">Ready</p>
-        <span class="chip chip-teal">Phase 1</span>
+        <button id="toggleAdvanced" class="ghost-btn ghost-sm adv-toggle" type="button">⚙ Advanced</button>
       </div>
-      <label class="toggle-row">
-        <input type="checkbox" id="cursor" checked />
-        <span>
-          <b>Agent cursor</b>
-          <small>Clicky-style</small>
-        </span>
-      </label>
-      <div class="toggle-row">
-        <label for="model" class="field-label">Model</label>
-        <select id="model" class="model-select">
-          <option value="qwen2.5vl:3b">qwen2.5vl:3b</option>
-          <option value="qwen2.5vl:7b">qwen2.5vl:7b</option>
-        </select>
-      </div>
+
+      <details id="advanced" class="advanced">
+        <summary hidden></summary>
+        <div class="adv-grid">
+          <label class="field-label" for="model">Model</label>
+          <select id="model" class="model-select">
+            <option value="qwen2.5vl:3b">qwen2.5vl:3b</option>
+            <option value="qwen2.5vl:7b">qwen2.5vl:7b</option>
+          </select>
+
+          <label class="field-label" for="maxSteps">Max steps</label>
+          <input id="maxSteps" type="number" min="1" max="200" value="50" class="num-input" />
+
+          <label class="field-label" for="shotQuality">Screenshot quality</label>
+          <select id="shotQuality" class="model-select">
+            <option value="35">Lower · faster</option>
+            <option value="50" selected>Balanced</option>
+            <option value="85">Higher · sharper</option>
+          </select>
+
+          <label class="toggle-row adv-toggle-row">
+            <input type="checkbox" id="cursor" checked />
+            <span><b>Agent cursor</b><small>Clicky-style pointer on the page</small></span>
+          </label>
+
+          <label class="toggle-row adv-toggle-row">
+            <input type="checkbox" id="orbCtl" checked />
+            <span><b>Privacy orb</b><small>Draggable status dot floats on the page</small></span>
+          </label>
+
+          <label class="toggle-row adv-toggle-row">
+            <input type="checkbox" id="lensCtl" />
+            <span><b>Privacy Lens</b><small>Highlight sensitive regions on the page</small></span>
+          </label>
+
+          <label class="toggle-row adv-toggle-row">
+            <input type="checkbox" id="debug" />
+            <span><b>Debug logging</b><small>Show technical logs by default</small></span>
+          </label>
+        </div>
+      </details>
     </section>
 
-    <section class="card think-card" id="thinkCard">
+    <!-- ── Agent pipeline ──────────────────────────────────────── -->
+    <section class="card pipeline">
       <div class="card-head">
-        <h2>AI thinking</h2>
-        <span id="thinkStatus" class="muted">idle</span>
+        <h2>Agent status</h2>
+        <span class="muted" id="stageText">idle</span>
       </div>
-      <pre id="thinkBody" class="think-body"></pre>
+      <div class="pipe" id="pipe">
+        <div class="stage" data-stage="capture"><span class="mark">○</span>CAPTURE</div>
+        <span class="pipe-arrow">→</span>
+        <div class="stage" data-stage="sanitize"><span class="mark">○</span>SANITIZE</div>
+        <span class="pipe-arrow">→</span>
+        <div class="stage" data-stage="gate"><span class="mark">🔒</span>GATE</div>
+        <span class="pipe-arrow">→</span>
+        <div class="stage" data-stage="reason"><span class="mark">○</span>REASON</div>
+        <span class="pipe-arrow">→</span>
+        <div class="stage" data-stage="act"><span class="mark">○</span>ACT</div>
+      </div>
+      <div id="gateNote" class="gate-note" hidden></div>
     </section>
 
+    <!-- ── Privacy gate (hero) ─────────────────────────────────── -->
+    <section class="card privacy" id="privacyCard">
+      <div class="card-head">
+        <h2>🔒 Privacy gate</h2>
+        <span id="gateBadge" class="badge badge-idle">STANDBY</span>
+      </div>
+
+      <div class="pv-metrics">
+        <div class="pv-metric"><b id="pvDetected">–</b><span>detected</span></div>
+        <div class="pv-metric"><b id="pvRedacted">–</b><span>protected</span></div>
+        <div class="pv-metric"><b id="pvRaw">0</b><span>raw values sent</span></div>
+      </div>
+
+      <div class="pv-flow" id="pvFlow">
+        <div class="flow-node"><span class="flow-icn">🖥</span><b>Your device</b><small id="pvBoundary">raw capture never leaves</small></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node flow-sanitized"><span class="flow-icn">🛡</span><b>Sanitized</b><small>PII removed on-device</small></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node flow-vlm"><span class="flow-icn">🧠</span><b>Local VLM</b><small>sanitized only</small></div>
+      </div>
+
+      <ul id="pvList" class="pv-list"></ul>
+    </section>
+
+    <!-- ── What the AI sees (before/after) ─────────────────────── -->
     <section class="card preview">
       <div class="card-head">
-        <h2>Last capture</h2>
+        <h2>👁 What the AI sees</h2>
         <span id="capSize" class="muted"></span>
       </div>
-      <img id="shot" alt="last capture" hidden />
-      <p id="noshot" class="hint">No capture yet.</p>
+      <div class="preview-cols">
+        <figure class="prev-col">
+          <figcaption>YOUR SCREEN</figcaption>
+          <img id="shotOriginal" alt="original capture" hidden />
+          <p class="hint prev-empty" id="noshotOriginal">Waiting for a capture…</p>
+        </figure>
+        <figure class="prev-col">
+          <figcaption>WHAT THE AI SEES</figcaption>
+          <img id="shot" alt="sanitized capture" hidden />
+          <p class="hint prev-empty" id="noshot">No capture yet.</p>
+        </figure>
+      </div>
+      <div class="preview-stats" id="previewStats" hidden>
+        <span id="pvProtRegions"><b>–</b> sensitive regions removed</span>
+        <span><b id="pvRaw2">0</b> raw values sent</span>
+        <span id="pvPayload"><b>–</b> payload size</span>
+      </div>
     </section>
 
+    <!-- ── Agent decision ──────────────────────────────────────── -->
+    <section class="card think-card" id="thinkCard">
+      <div class="card-head">
+        <h2>🧠 Agent decision</h2>
+        <span id="thinkStatus" class="muted">idle</span>
+      </div>
+      <div id="thinkBody" class="dec-grid">
+        <div class="dec-row dec-goal"><span class="dec-key">Goal</span><span id="decGoal" class="dec-val">—</span></div>
+        <div class="dec-row"><span class="dec-key">Observed</span><span id="decObserved" class="dec-val">—</span></div>
+        <div class="dec-row"><span class="dec-key">Protected</span><span id="decProtected" class="dec-val">—</span></div>
+        <div class="dec-row"><span class="dec-key">Target</span><span id="decTarget" class="dec-val">—</span></div>
+        <div class="dec-row"><span class="dec-key">Action</span><span id="decAction" class="dec-val"></span></div>
+        <div class="dec-row"><span class="dec-key">Result</span><span id="decResult" class="dec-val">pending…</span></div>
+      </div>
+    </section>
+
+    <!-- ── Live activity ───────────────────────────────────────── -->
     <section class="card live" id="liveCard">
       <div class="card-head">
-        <h2>Live activity</h2>
+        <h2>⚡ Live activity</h2>
         <div class="head-actions">
           <span id="liveDot" class="dot idle"></span>
           <button id="toggleLive" class="ghost-btn ghost-sm" title="Minimise / expand live activity">–</button>
+          <button id="toggleTech" class="ghost-btn ghost-sm" title="Show / hide technical logs">View technical logs ›</button>
         </div>
       </div>
       <div class="live-body">
@@ -76,6 +183,7 @@
       </div>
     </section>
 
+    <!-- ── History ─────────────────────────────────────────────── -->
     <section class="history">
       <div class="card-head history-head">
         <h2>History</h2>

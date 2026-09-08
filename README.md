@@ -1,29 +1,112 @@
-# SIH 26171 — On-device Visual Perception for Light-weight Browser Agents
+# PRIVYSE — On-device Privacy-Preserving Browser Agent
 
-Privacy-preserving browser agent: on-device screen understanding + PII redaction,
+**SIH 26171 · Track: On-device Visual Perception for Light-weight Browser Agents**
+
+A privacy-preserving browser agent: on-device screen understanding + PII redaction,
 sanitized-only context to a server VLM, JSON actions back, executed locally.
+Your screen never leaves the device — and the gate is visible every step of the way.
 
-Full plan: `C:\SIH\plans\SIH26171_build_plan.md`
+<p align="center">
 
-## Status (Phase 2 + 3 — on-device vision live, sanitizer + VLM accuracy measured)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![WXT](https://img.shields.io/badge/WXT-0.20-blue?style=for-the-badge&color=365FC7&logo=googlechrome&logoColor=white)](https://wxt.dev)
+[![Chrome MV3](https://img.shields.io/badge/Chrome-MV3-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)]()
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white&color=009688)](https://fastapi.tiangolo.com)
+[![Qwen2.5-VL](https://img.shields.io/badge/Qwen2.5_VL-7b-7B3FF2?style=for-the-badge&color=7B3FF2)](https://ollama.com/library/qwen2.5vl)
+[![Ollama](https://img.shields.io/badge/Ollama-local-0B1220?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.com)
+[![MediaPipe](https://img.shields.io/badge/MediaPipe_BlazeFace-on%2Ddevice-34D399?style=for-the-badge)](https://developers.google.com/mediapipe)
+[![Tesseract.js](https://img.shields.io/badge/Tesseract.js-WASM-D14836?style=for-the-badge&color=D14836)](https://tesseract.projectnaptha.com)
+
+[![PII F1](https://img.shields.io/badge/PII%20F1%20(px)-0.979-38BDF8?style=for-the-badge)](benchmarks/results/dashboard.json)
+[![Zero-Leak](https://img.shields.io/badge/ZERO%2DLEAK-PASS-22C55E?style=for-the-badge)](benchmarks/results/dashboard.json)
+[![E2E per step](https://img.shields.io/badge/E2E%20~12.7%20s%2Fstep-100.0%25-111827?style=for-the-badge&color=64748B)](benchmarks/results/dashboard.json)
+[![On-device assets](https://img.shields.io/badge/on%2Ddevice%2021.4%20MB%2C%200%20MB%20off%2Ddevice-0B1220?style=for-the-badge)](extension/public/models/manifest.json)
+[![SIH 2026](https://img.shields.io/badge/SIH-2026-FFFFFF?style=for-the-badge&color=111827)]()
+
+</p>
+
+---
+
+## Quick links
+
+<p align="center">
+
+[![Pitch script](https://img.shields.io/badge/Pitch_Script-PDF-F87171?style=flat-square)](docs/PITCH.pdf)
+[![Architecture](https://img.shields.io/badge/Architecture-PDF%20%26%20SVG-38BDF8?style=flat-square)](docs/Report/architecture.pdf)
+[![Report](https://img.shields.io/badge/Report-PDF-34D399?style=flat-square)](docs/Report/report.pdf)
+[![Slides](https://img.shields.io/badge/Slides-PPT%20assets-A78BFA?style=flat-square)](ppt-final/)
+[![Benchmarks](https://img.shields.io/badge/Benchmarks-Dashboard%20JSON-22C55E?style=flat-square)](benchmarks/results/dashboard.json)
+[![Test site](https://img.shields.io/badge/Test_site-GT%20labelled%20pages-FACC15?style=flat-square)](test-site/)
+[![Build plan](https://img.shields.io/badge/Build_plan-Markdown-0B1220?style=flat-square)](C:/SIH/plans/SIH26171_build_plan.md)
+
+</p>
+
+---
+
+## Why PRIVYSE
+
+Generic "computer use" agents capture the **raw screen** — every email, phone
+number, PAN, address and face — and ship those pixels to a hosted model.
+PRIVYSE puts a **sanitizer between the camera and the model**. Every screenshot
+passes through a fail-closed, on-device privacy gate before anything can leave:
+
+<p align="center">
+
+`CAPTURE → SANITIZE → GATE → REASON → ACT`
+
+</p>
+
+- **Tier A — absolute secrets.** Password / OTP / CVV / API-key fields: solid black.
+- **Tier B — PII.** Emails, phones, Aadhaar, PAN, Luhn-valid cards, names,
+  addresses → redacted **and** replaced with stable tokens (`[EMAIL_1]`, `[PAN_2]`)
+  so the model keeps continuity. Same value → same token.
+- **Tier C — faces & non-DOM text.** BlazeFace blurs faces on-device; region-restricted
+  Tesseract OCR scans image/canvas/video regions the DOM never carries. Weights bundled,
+  never fetched from a CDN.
+- **Sensitive pages skipped entirely.** Banking, password-reset, ID pages are never captured.
+- **Zero-leak OCR verification.** The *sanitized* image is OCR'd again — if any PII is
+  still readable in the pixels that would be uploaded, the gate reports `BLOCKED` and the step stops.
+
+Trust is demonstrated, not promised: the gate is visible in the side panel, and a
+`GATE PASS` / `BLOCKED` flash fires on every step.
+
+## Features
+
+- **Side panel control center** — task box, live agent-state pill, 5-stage pipeline
+  strip with a GATE node, privacy hero card (detected / protected / raw-values-sent
+  with `jes\*\*\*@gmail.com → [EMAIL_1]` token map), before/after "Your screen vs.
+  what the AI sees", structured decision trace, activity log, session history.
+- **Spotlight (Alt+K)** — page-level command palette: run / step-one / stop, toggle
+  cursor, switch models, VLM health check, toggle orb / Privacy Lens / AI View.
+- **Floating PRIVYSE orb** — draggable status dot that expands into a live pill
+  (stage, step counter, pipeline dots) while the panel is closed; hides itself
+  during every capture.
+- **Privacy Lens** — one-key live scan that highlights sensitive regions on the page
+  (red rings + type tags) with a *Show sanitized view* banner.
+- **AI View mode (USER | AI VIEW)** — flip the page into exactly what the model
+  sees: PII rewritten to stable tokens + Set-of-Marks chips on every interactive element.
+- **Adaptive loop** — `/act` + `/rethink`, stuck / no-progress detection, site-level
+  lesson memory, auto-type escalator.
+
+## Status
 
 - [x] WXT extension scaffold (Chrome MV3 via WXT; Firefox pass in Phase 4)
 - [x] Side panel UI: task input, Run-one-step, capture preview, activity log
-- [x] Background orchestrator: captureVisibleTab → POST /act → execute in tab
+- [x] Background orchestrator: capture → POST /act → execute in tab
 - [x] Content script: executor + DOM serializer (labels, bboxes × dpr, shadow roots)
 - [x] Frozen v1 protocol shared by client + server (`extension/core/protocol.ts`)
 - [x] FastAPI server: `/health`, `/warm`, `/act` (Qwen2.5-VL), `/rethink`
 - [x] `core/sanitizer.ts` — privacy gate + Tier A/B redaction + prose PII sweep
 - [x] **Phase 2 on-device vision** — offscreen-document inference host:
-      MediaPipe BlazeFace face blur (Tier C), region-restricted Tesseract OCR
-      (canvas/img/video only), account/ifsc label rules, whole-region taint
-      redaction, and a zero-leak layer 2 that OCRs the sanitized screenshot
-      before upload (fail-closed). All weights bundled in `public/models/`
-      (~2.2 MB models + WASM runtime, ~21 MB total) — never fetched from a CDN.
+      BlazeFace face blur (Tier C), region-restricted Tesseract OCR, account/ifsc
+      label rules, whole-region taint redaction, zero-leak layer-2 OCR gate
+      (fail-closed). ~2.2 MB models + WASM runtime (~21 MB total), no CDN.
+- [x] **Phase 3 helpers** — `core/orb.ts` floating status orb, `core/privacy-lens.ts`
+      live PII scanner, `core/ai-view.ts` tokenized + SoM view, spotlight commands.
 - [x] `test-site/` — 7 GT-labelled pages (flight booking, bank transfer, faces,
       PII-in-canvas, PII-in-the-wild)
-- [x] `benchmarks/` — sanitizer P/R + zero-leak (DOM + image OCR) + latency,
-      and full VLM agent loop
+- [x] `benchmarks/` — sanitizer P/R + zero-leak + latency + full VLM agent loop
+- [x] Pitch script (`docs/PITCH.pdf`), architecture diagram (`docs/Report/architecture.pdf`)
 
 ### Measured now (`benchmarks/results/dashboard.json`)
 
@@ -42,26 +125,19 @@ Full plan: `C:\SIH\plans\SIH26171_build_plan.md`
 | Client resources | ~0.3 s vision + ~0.6 s OCR gate per step; 2.2 MB weights, 21.4 MB total on-device assets, 0 MB off-device |
 
 Zero-leak is checked twice: `scanForLeaks` (regex over the outbound DOM JSON)
-and an OCR pass over the **sanitized screenshot pixels** (what would actually
-be uploaded). Pixel precision/recall are computed on **rasterized masks**
-(union of predicted redaction boxes vs union of GT boxes, clipped to the
-captured viewport) — set-based, so both are bounded by 1 by construction. The
-3b-vs-7b gap shows the harness discriminates model capability — intended.
+and an OCR pass over the **sanitized screenshot pixels** (what would actually be
+uploaded). Pixel precision/recall are computed on **rasterized masks** (union of
+predicted redaction boxes vs. union of GT boxes, clipped to the captured
+viewport). The 3b-vs-7b gap shows the harness discriminates model capability.
 
-## Latency engineering (Phase 4 partial)
+## Roadmap
 
-Server levers (all on, env-tunable): `VLM_MAX_TOKENS=128` (was 256),
-`SYSTEM_PROMPT_MODE=compact` (~60% fewer system tokens), `IMAGE_MAX_SIDE=800`
-(Pillow JPEG resize before the VLM call). Bench harness adds `BENCH_ROUTED=1`:
-interactive steps use `qwen2.5vl:3b` (~7.5–8.0 s/step), read/report tasks use
-`qwen2.5vl:7b` — 3/3 tasks, avg VLM time per step 18.6 s → 12.7 s.
-
-Hardware reality on the dev box (RTX 3050 4 GB): `qwen2.5vl:7b` (6.2 GB) runs
-**75% CPU / 25% GPU** (`ollama ps`), and vision tokens floor at ~1024 per image,
-so prefill (~5.5 s) + decode (~5.5 s) are CPU-bound even on a minimal prompt
-probe. The sub-5 s/step target needs VRAM ≥ model size (judge hardware) or a
-GPU-resident small model — the routed design is what makes the agent usable on
-memory-constrained hardware today.
+1. **Latency** — p50 < 5000 ms/step on judge-class GPU (VRAM ≥ 7b + NBF) with
+   routed 3b/7b as the low-memory fallback.
+2. **Firefox pass** — sidebar as the vision host (no offscreen documents in MV2),
+   `browser.*` APIs, packaged extension for the judging VM.
+3. **Demo deliverables** — 3-min video (network-tab proof that only sanitized
+   payloads leave), rehearsal on a cold profile.
 
 ## Run it
 
@@ -97,24 +173,20 @@ unpacked** → select `C:\SIH\26171\extension\.output\chrome-mv3`.
 
 ```
 extension/          WXT extension (TypeScript)
-  core/protocol.ts  frozen v1 action protocol + message types
-  core/vision.ts    Phase 2 on-device vision (BlazeFace + Tesseract, bundled weights)
-  entrypoints/      background (orchestrator) · content (executor) · sidepanel (UI) · offscreen (vision host)
-  public/models/    bundled weights + WASM runtimes (no CDN)
+  core/protocol.ts      frozen v1 action protocol + message types
+  core/vision.ts        Phase 2 on-device vision (BlazeFace + Tesseract, bundled weights)
+  core/sanitizer.ts     privacy gate + Tier A/B redaction + prose PII sweep
+  core/orb.ts           floating status orb (Phase 3)
+  core/privacy-lens.ts  live PII highlight scanner (Phase 3)
+  core/ai-view.ts       tokenized + Set-of-Marks view (Phase 3)
+  entrypoints/          background (orchestrator) · content (executor) · sidepanel (UI) · offscreen (vision host)
+  public/models/        bundled weights + WASM runtimes (no CDN)
 server/             FastAPI — /health, /act (Qwen2.5-VL via Ollama), /rethink
 test-site/          synthetic pages with ground-truth PII labels (incl. faces + canvas PII)
 benchmarks/         metrics runner: detection P/R, redaction, zero-leak, latency, VLM loop
-docs/               architecture diagram, demo script
+docs/               pitch script (PDF), architecture diagram, research briefs
+ppt-final/          slide assets
 ```
-
-## Next (Phase 4 — meeting targets)
-
-1. Latency: reach p50 < 5000 ms/step on judge-class GPU (VRAM ≥ 7b model size +
-   NBF support) and keep routed 3b/7b as the low-memory fallback.
-2. Firefox pass: sidebar as the vision host (no offscreen documents in MV2),
-   `browser.*` APIs, packaged extension for the judging VM.
-3. Demo deliverables: 3-min video (network-tab proof that only sanitized
-   payloads leave), pitch deck, rehearsal on a cold profile.
 
 ## Benchmarks
 
@@ -129,3 +201,11 @@ Set `BENCH_MODEL=qwen2.5vl:7b`, `BENCH_ONLY=pii-in-the-wild`, `BENCH_STEPS=12`
 to select model/task/budget. `BENCH_ROUTED=1` switches to small/big routing
 (`BENCH_MODEL_SMALL` / `BENCH_MODEL_BIG`, default qwen2.5vl:3b/:7b). VLM tasks:
 `flight-booking`, `bank-transfer`, `pii-in-the-wild`.
+
+---
+
+<p align="center">
+
+**PRIVYSE · SIH 26171 · "Your screen never leaves — and you can watch it."**
+
+</p>
