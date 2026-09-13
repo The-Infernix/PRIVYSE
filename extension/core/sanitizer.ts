@@ -19,6 +19,7 @@ import {
   type PiiMatch,
 } from "./pii-rules";
 import { drawSoMOverlay } from "./som-overlay";
+import type { ScreenPerception } from "./perception";
 import type { DomElement, HistoryStep, ServerActRequest } from "./protocol";
 
 /** Max screenshot width in px before downscaling (keeps vision tokens low). */
@@ -34,7 +35,7 @@ export interface RedactionLogEntry {
   tier: "A" | "B" | "C";
   token?: string;
   bbox: [number, number, number, number];
-  source: "dom" | "text" | "vision";
+  source: "dom" | "text" | "vision" | "perception";
   /** Partially-masked display of the raw value (ON-DEVICE only, for the
    * stable-token card). e.g. "jes***@gmail.com". Absent for face blurs. */
   masked?: string;
@@ -49,6 +50,10 @@ export interface VisionFindings {
     bbox: [number, number, number, number];
     region?: [number, number, number, number];
   }[];
+  /** On-device MobileViT screen perception (Phase 4: "local ViT reads the
+   * screen"). Drives region escalation + is shipped to the server as a compact
+   * semantic map so the VLM reasons from locally-observed structure. */
+  perception?: ScreenPerception;
   stats?: Record<string, unknown>;
 }
 
@@ -376,6 +381,30 @@ export async function sanitizeForUpload(
     });
   }
 
+  // 0b) PHASE 4 — perception-driven escalation (on-device ViT decisions).
+  //     Non-DOM image regions the local MobileViT reads as photographic /
+  //     screen-capture / doc-like (or low-confidence graphics) are blurred
+  //     whole: identity imagery never leaves even when BlazeFace finds no face
+  //     and OCR finds no plain text. Fails toward redaction, never toward leak.
+  const perceptionEscalate = vision?.perception?.decisions.escalate ?? [];
+  for (const d of perceptionEscalate) {
+    const already = redactions.some(
+      (r) =>
+        r.source !== "perception" &&
+        Math.abs(r.bbox[0] - d.region[0]) <= 4 &&
+        Math.abs(r.bbox[1] - d.region[1]) <= 4 &&
+        Math.abs(r.bbox[2] - d.region[2]) <= 4 &&
+        Math.abs(r.bbox[3] - d.region[3]) <= 4,
+    );
+    if (already) continue;
+    redactions.push({
+      type: "graphics",
+      tier: "C",
+      bbox: d.region,
+      source: "perception",
+    });
+  }
+
   // 1) Tokenize sensitive values inside the DOM snapshot so no PII text is
   //    sent in the JSON body.
   const sanitizedDom = dom.map((el) => {
@@ -508,6 +537,8 @@ export async function sanitizeForUpload(
     history,
     screenshot_b64: sanitizedDataUrl.replace(/^data:image\/\w+;base64,/, ""),
     dom: sanitizedDom,
+    // Compact on-device semantic map → the server's redaction-aware prompt.
+    screenPerception: vision?.perception,
   };
 
   return { ...body, redactions, visionStats: vision?.stats };

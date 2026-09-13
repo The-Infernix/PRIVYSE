@@ -1,6 +1,7 @@
 import type { AgentAction, VerifiedTarget } from "./protocol";
 import { cursor } from "./virtual-cursor";
 import { forEachElement, indexOfElement } from "./dom-common";
+import { validateNavigationUrl, isFileInput, trySubmitForm } from "./action-guards";
 
 // Deterministic element findings the executor confirmed this run (e.g. the
 // real <input> it auto-descended into from a non-typeable wrapper). background
@@ -244,26 +245,14 @@ function pressKey(key: string) {
   // Synthetic (untrusted) key events never trigger native form submission,
   // so Enter in a real search form would silently do nothing (Google etc.
   // rely on the default action). Deterministic fallback: submit the enclosing
-  // form with requestSubmit() — a scripted-but-real submission that fires the
-  // form's submit event and performs the navigation.
+  // form with requestSubmit() — guarded by action-guards (a javascript:/data:
+  // form action is an exfiltration primitive and is refused, see trySubmitForm).
   if (normalized.key === "Enter") {
     const inForm =
       document.activeElement instanceof HTMLElement
         ? (document.activeElement.closest("form") as HTMLFormElement | null)
         : null;
-    const hasContent =
-      document.activeElement instanceof HTMLInputElement ||
-      document.activeElement instanceof HTMLTextAreaElement
-        ? (document.activeElement.value || "").length > 0
-        : false;
-    if (inForm && hasContent && !inForm.dataset.sihSubmitted) {
-      setTimeout(() => {
-        if (!inForm.dataset.sihSubmitted) {
-          inForm.dataset.sihSubmitted = "1";
-          inForm.requestSubmit();
-        }
-      }, 0);
-    }
+    trySubmitForm(inForm);
   }
 }
 
@@ -295,9 +284,14 @@ export async function executeAction(action: AgentAction): Promise<string> {
       cursor.scroll(action.direction);
       return `scrolled ${action.direction} by ${amount}px`;
     }
-    case "navigate":
+    case "navigate": {
+      const g = validateNavigationUrl(action.url);
+      if (!g.ok) {
+        throw new Error(`navigate refused: ${g.reason}`);
+      }
       window.location.href = action.url;
       return `navigating to ${action.url}`;
+    }
     case "wait": {
       const ms = Math.min(action.ms ?? 500, 5000);
       await new Promise((r) => setTimeout(r, ms));
@@ -306,6 +300,11 @@ export async function executeAction(action: AgentAction): Promise<string> {
     case "click": {
       const el = findElementById(action.target);
       if (!el) throw new Error(`click: element #${action.target} not found`);
+      if (isFileInput(el)) {
+        throw new Error(
+          `click refused: target is <input type="file"> — opening a picker / forcing a file selection without a user gesture is a guard breach`,
+        );
+      }
       await clickElement(el, action.target);
       return `clicked #${action.target} (${el.tagName.toLowerCase()})`;
     }

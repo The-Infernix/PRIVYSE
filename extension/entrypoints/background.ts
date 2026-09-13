@@ -673,9 +673,14 @@ export default defineBackground(() => {
         );
         vision = vr?.result ?? undefined;
         if (vision) {
+          const perc = vision.perception;
+          const percMs = perc?.ms ? `, perception ${perc.ms}ms` : "";
+          const percTags = perc?.enabled
+            ? ` [${Object.entries(perc.summary).map(([t, n]) => `${t}:${n}`).join(" ")}]`
+            : "";
           await log(
             "info",
-            `${prefix}Vision: ${vision.faces.length} face(s) blurred, ${vision.ocr.length} OCR PII hit(s) in image regions`,
+            `${prefix}Vision: ${vision.faces.length} face(s) blurred, ${vision.ocr.length} OCR PII hit(s)${percMs}${percTags}`,
           );
         }
       } catch (e) {
@@ -817,6 +822,15 @@ export default defineBackground(() => {
         rawValuesSent: 0,
         byType: [...typeCounts.entries()].map(([type, count]) => ({ type, count })),
         tokens,
+        // On-device ViT screen-perception summary for the privacy card.
+        perception: vision?.perception && vision.perception.enabled
+          ? {
+              enabled: true,
+              ms: vision.perception.ms,
+              summary: vision.perception.summary,
+              escalate: vision.perception.decisions.escalate.length,
+            }
+          : { enabled: false, ms: 0, summary: {}, escalate: 0 },
       } satisfies ExtMessage)
       .catch(() => {});
 

@@ -18,6 +18,7 @@ const PAGES = [
   "bank-transfer-details.html",
   "bank-transfer-otp.html",
   "pii-in-the-wild.html",
+  "india-pii.html",
 ];
 
 // Tall viewport so every GT-labelled element is inside the captured frame
@@ -68,7 +69,7 @@ function startStaticServer() {
 
 // Categories scored end-to-end. face/account are Phase 2 (on-device vision);
 // everything else stays DOM-rules. Remaining cats are reported as backlog.
-const SUPPORTED = new Set(["name", "email", "phone", "aadhaar", "pan", "card", "address", "password", "face", "account", "ifsc"]);
+const SUPPORTED = new Set(["name", "email", "phone", "aadhaar", "pan", "card", "address", "password", "face", "account", "ifsc", "upi", "voterid", "dl", "passport"]);
 const REPORTED_OUT_OF_SCOPE = new Set(["ssn", "dob"]);
 
 function area(b) {
@@ -205,8 +206,13 @@ async function runPage(page, base, bundleJs) {
         "benchmark",
         [],
         proseRedactions,
-        vision
-          ? { faces: vision.faces, ocr: vision.ocr, stats: vision.stats }
+        vision // faces + ocr + on-device perception (drives region escalation)
+          ? {
+              faces: vision.faces,
+              ocr: vision.ocr,
+              stats: vision.stats,
+              perception: vision.perception,
+            }
           : undefined,
       );
       t.sanitize = performance.now() - t0;
@@ -247,6 +253,7 @@ async function runPage(page, base, bundleJs) {
       visionStats: inpage.vision?.stats,
       ocrHits: inpage.vision?.ocr ?? [],
       faces: inpage.vision?.faces ?? [],
+      perception: inpage.vision?.perception,
       regions: inpage.regions,
       payloadSnapshot: inpage.payload,
       domElements: inpage.dom.length,
@@ -404,12 +411,13 @@ try {
       a.capture += r.captureMs;
       a.serialize += r.timings.serialize;
       a.vision += r.timings.vision || 0;
+      a.perception += r.perception?.ms ?? 0;
       a.sanitize += r.timings.sanitize;
       a.imageGate += r.timings.imageGate || 0;
       a.total += r.captureMs + r.timings.serialize + (r.timings.vision || 0) + r.timings.sanitize;
       return a;
     },
-    { capture: 0, serialize: 0, vision: 0, sanitize: 0, imageGate: 0, total: 0 },
+    { capture: 0, serialize: 0, vision: 0, perception: 0, sanitize: 0, imageGate: 0, total: 0 },
   );
   const n = results.length;
   for (const k of Object.keys(latencies)) latencies[k] = +(latencies[k] / n).toFixed(1);
@@ -430,6 +438,29 @@ try {
   );
   for (const k of ["faceMs", "ocrMs"]) visionAgg[k] = +(visionAgg[k] / n).toFixed(1);
 
+  // On-device ViT screen perception aggregation (PS §1): per-page summary,
+  // avg inference time, region escalations. photoTags = photographic/"screen
+  // of another app" tiles that the local model labeled in-browser.
+  const perceptionAgg = results.reduce(
+    (a, r) => {
+      const p = r.perception;
+      if (!p || !p.enabled) return a;
+      a.pagesEnabled += 1;
+      a.ms += p.ms || 0;
+      a.photo += p.summary.photo || 0;
+      a.ui += p.summary.ui || 0;
+      a.document += p.summary.document || 0;
+      a.data += p.summary.data || 0;
+      a.blank += p.summary.blank || 0;
+      a.uncertain += p.summary.uncertain || 0;
+      a.escalate += p.decisions.escalate.length;
+      a.ocrPriority += p.decisions.ocrPriority.length;
+      return a;
+    },
+    { pagesEnabled: 0, ms: 0, photo: 0, ui: 0, document: 0, data: 0, blank: 0, uncertain: 0, escalate: 0, ocrPriority: 0 },
+  );
+  if (perceptionAgg.pagesEnabled) perceptionAgg.ms = +(perceptionAgg.ms / perceptionAgg.pagesEnabled).toFixed(1);
+
   const report = {
     generated_at: new Date().toISOString(),
     pages: results.map((r) => ({
@@ -441,6 +472,7 @@ try {
       bodySizeBytes: r.bodySize,
       faces: r.faces,
       ocrHits: r.ocrHits,
+      perception: r.perception ?? { enabled: false },
       regions: r.regions,
       timingsMs: { ...r.timings, capture: r.captureMs },
     })),
@@ -457,6 +489,7 @@ try {
     vision: {
       ...visionAgg,
       skipped: [...new Set(visionAgg.skipped)],
+      perception: perceptionAgg,
     },
     latencyWaterfallMsAvg: latencies,
   };
@@ -468,8 +501,9 @@ try {
   console.table(Object.entries(overall).map(([c, v]) => ({ category: c, ...v, ...px[c] })));
   console.log(`overview: precisionPx=${px.__overall__.precisionPx} recallPx=${px.__overall__.recallPx} f1Px=${px.__overall__.f1Px}`);
   console.log(`zero-leak pass=${report.zeroLeak.pass} hits=${leakHits.length} phase2-exposures=${phase2Exposures.length}`);
-  console.log(`latency avg (ms): capture=${latencies.capture} serialize=${latencies.serialize} vision=${latencies.vision} sanitize=${latencies.sanitize} imageGate=${latencies.imageGate}`);
+  console.log(`latency avg (ms): capture=${latencies.capture} serialize=${latencies.serialize} vision=${latencies.vision} perception=${latencies.perception} sanitize=${latencies.sanitize} imageGate=${latencies.imageGate}`);
   console.log(`vision: modelsMB=${visionAgg.modelsMB} faces=${visionAgg.facesFound} ocrRegions=${visionAgg.ocrRegions} ocrHits=${visionAgg.ocrHits} faceMs=${visionAgg.faceMs} ocrMs=${visionAgg.ocrMs} skipped=${report.vision.skipped.join(",") || "none"}`);
+  console.log(`perception: pages=${perceptionAgg.pagesEnabled} avgMs=${perceptionAgg.ms} tiles=> photo=${perceptionAgg.photo} ui=${perceptionAgg.ui} document=${perceptionAgg.document} data=${perceptionAgg.data} blank=${perceptionAgg.blank} uncertain=${perceptionAgg.uncertain} escalates=${perceptionAgg.escalate} ocrPriority=${perceptionAgg.ocrPriority} (MobileViT-Small q8, fully on-device)`);
 } finally {
   await browser.close();
   staticSrv.close();

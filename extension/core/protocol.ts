@@ -29,6 +29,56 @@ export type AgentAction =
   | { type: "done"; answer?: string };
 
 // ---------------------------------------------------------------------------
+// On-device screen perception (PS §1: "local ViT reads the screen")
+// ---------------------------------------------------------------------------
+
+export type PerceptionTag =
+  | "photo" // photographic / illustrative (identity imagery)
+  | "ui" // another screen inside the page
+  | "document" // printed / wallet / doc-like
+  | "data" // meter / clock / scoreboard
+  | "blank" // text / whitespace heavy
+  | "uncertain"; // low-confidence graphic
+
+export interface PerceptionTile {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  tag: PerceptionTag;
+  cls: number;
+  label: string;
+  conf: number;
+}
+
+export interface PerceptionRegionDecision {
+  region: [number, number, number, number];
+  tags: PerceptionTag[];
+  reason: string;
+}
+
+/**
+ * On-device MobileViT screen perception — produced in the browser by the local
+ * ViT before anything leaves the device. Shipped as a compact semantic map to
+ * the server so the VLM reasons from locally-observed structure (improves
+ * visual-context accuracy without sending redacted pixels).
+ */
+export interface ScreenPerception {
+  version: 1;
+  model: string;
+  enabled: boolean;
+  tiles: PerceptionTile[];
+  summary: Partial<Record<PerceptionTag, number>>;
+  decisions: {
+    escalate: PerceptionRegionDecision[];
+    ocrPriority: PerceptionRegionDecision[];
+    captchaLike: PerceptionRegionDecision[];
+  };
+  ms: number;
+  modelMB: number;
+}
+
+// ---------------------------------------------------------------------------
 // DOM snapshot — produced by the content-script serializer (Phase 1).
 // bbox is [x, y, w, h] in CAPTURED SCREENSHOT pixel space (CSS px × devicePixelRatio).
 // ---------------------------------------------------------------------------
@@ -81,6 +131,9 @@ export interface ServerActRequest {
    * "DETECTED ELEMENT — use verbatim" so the VLM targets the known-good
    * element instead of re-guessing. (Borrowed from clicky-windows.) */
   verifiedTargets?: VerifiedTarget[];
+  /** Compact on-device semantic map computed by the local MobileViT before
+   * upload. The server is aware of the redaction scheme AND the local vision. */
+  screenPerception?: ScreenPerception;
 }
 
 /** A {"target": id} override the executor confirmed works. */
@@ -148,6 +201,13 @@ export type ExtMessage =
       byType: { type: string; count: number }[];
       /** Stable-token map: masked raw value → [TOKEN_n] (device-local, never sent). */
       tokens: { type: string; masked: string; token: string }[];
+      /** On-device ViT screen-perception summary (tile tags + escalations). */
+      perception?: {
+        enabled: boolean;
+        ms: number;
+        summary: Partial<Record<PerceptionTag, number>>;
+        escalate: number;
+      };
     }
   // Structured decision trace (index-card version of the raw reasoning)
   | {

@@ -26,6 +26,14 @@ const PHONE_RE =
 const AADHAAR_RE =
   /(?<![\d])[2-9]\d{3}[\s-]?\d{4}[\s-]?\d{4}(?![\s-]?\d)/g;
 const PAN_RE = /(?<![A-Z0-9])[A-Z]{5}\d{4}[A-Z](?![A-Z0-9])/g;
+// UPI handle: 10-digit mobile @ bank/PSP shortcode (e.g. 9876543210@ybl).
+const UPI_RE = /(?<![\d])\d{10}@[A-Za-z]{2,12}(?![A-Za-z0-9])/g;
+// Voter ID (EPIC): 3 uppercase letters + 7 digits (e.g. ABC1234567).
+const VOTER_ID_RE = /(?<![A-Z0-9])[A-Z]{3}\d{7}(?![A-Z0-9])/g;
+// Driving licence (modern): STATE YY RRRR SSSSSSS, dashed or not.
+const DL_RE = /\b[A-Z]{2}-?\d{2}-?\d{4}-?\d{7}\b(?!-?\d)/g;
+// Passport: one letter + 7 digits, first digit 1-9 (e.g. K1234567).
+const PASSPORT_RE = /(?<![A-Z0-9])[A-Z][1-9]\d{6}(?![0-9])/g;
 // Credit card: 13-16 digits grouped 4s, Luhn-validated below.
 const CARD_CANDIDATE_RE = /(?<![\d])\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}(?![\d])/g;
 // Utility account numbers (EB-CA989766 style). Too loose for DOM prose (any
@@ -94,6 +102,22 @@ const TIER_B_FIELDS: Record<string, string> = {
   acct: "account",
   iban: "account",
   ifsc: "ifsc",
+  // Indian IDs
+  upi: "upi",
+  upiid: "upi",
+  upiaddress: "upi",
+  voterid: "voterid",
+  votercard: "voterid",
+  epic: "voterid",
+  dlno: "dl",
+  dlnumber: "dl",
+  drivinglicence: "dl",
+  drivinglicense: "dl",
+  licenseno: "dl",
+  licenceno: "dl",
+  passport: "passport",
+  passportnumber: "passport",
+  passportno: "passport",
   // Card
   card: "card",
   cc: "card",
@@ -176,6 +200,54 @@ export function detectPii(
       type: "pan",
       tier: "B",
       label: "pan",
+      start: m.index!,
+      end: m.index! + m[0].length,
+      value: m[0],
+    });
+  }
+
+  // UPI ID (India): 9876543210@ybl / @okaxis / @paytm style handles.
+  for (const m of text.matchAll(UPI_RE)) {
+    matches.push({
+      type: "upi",
+      tier: "B",
+      label: "upi",
+      start: m.index!,
+      end: m.index! + m[0].length,
+      value: m[0],
+    });
+  }
+
+  // Voter ID / EPIC
+  for (const m of text.matchAll(VOTER_ID_RE)) {
+    matches.push({
+      type: "voterid",
+      tier: "B",
+      label: "voterid",
+      start: m.index!,
+      end: m.index! + m[0].length,
+      value: m[0],
+    });
+  }
+
+  // Driving licence (India)
+  for (const m of text.matchAll(DL_RE)) {
+    matches.push({
+      type: "dl",
+      tier: "B",
+      label: "dl",
+      start: m.index!,
+      end: m.index! + m[0].length,
+      value: m[0],
+    });
+  }
+
+  // Passport
+  for (const m of text.matchAll(PASSPORT_RE)) {
+    matches.push({
+      type: "passport",
+      tier: "B",
+      label: "passport",
       start: m.index!,
       end: m.index! + m[0].length,
       value: m[0],

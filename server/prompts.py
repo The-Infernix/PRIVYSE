@@ -84,6 +84,41 @@ def select_system_prompt() -> str:
     return SYSTEM_PROMPT_COMPACT if os.getenv("SYSTEM_PROMPT_MODE", "full") == "compact" else SYSTEM_PROMPT
 
 
+def _perception_block(perception: dict | None) -> list[str]:
+    """Compact prose version of the on-device MobileViT semantic map.
+
+    The server is made AWARE of the local redaction + perception so the VLM can
+    reason about structure that the pixel redaction removed (e.g. a blurred
+    photo region is still described as "photo-like graphics"). Kept very short:
+    prefill time on the local CPU-bound VLM scales with prompt tokens.
+    """
+    if not perception or not perception.get("enabled"):
+        return []
+    summary: dict[str, int] = perception.get("summary") or {}
+    order = ["photo", "ui", "document", "data", "blank", "uncertain"]
+    parts = []
+    for tag in order:
+        n = summary.get(tag)
+        if n:
+            parts.append(f"{n} {tag}")
+    if not parts:
+        return []
+
+    lines = ["\nON-DEVICE PERCEPTION (from a MobileViT computed locally BEFORE upload — it saw this page itself):"]
+    lines.append("Visible screen: " + ", ".join(parts) + " region(s).")
+    decisions = perception.get("decisions") or {}
+    esc = decisions.get("escalate") or []
+    cpt = decisions.get("captchaLike") or []
+    if esc:
+        lines.append(
+            f"Locally redacted {len(esc)} non-DOM graphics region(s) (photo/screen/doc-like) — treat them as OPAQUE: "
+            "never guess their content. Reason from the DOM + numbered tags instead."
+        )
+    if cpt:
+        lines.append("A possible human-verification graphic was detected — do NOT attempt to read it.")
+    return lines
+
+
 def build_user_content(
     task: str,
     screenshot_b64: str,
@@ -92,6 +127,7 @@ def build_user_content(
     lessons: list[str] | None = None,
     warnings: list[str] | None = None,
     verified_targets: list[dict] | None = None,
+    screen_perception: dict | None = None,
 ) -> list[dict]:
     """Build the user message content array for the VLM.
 
@@ -129,6 +165,9 @@ def build_user_content(
         lines.append("\nLearned lessons from prior runs (these are CORRECT):")
         for lesson in lessons[:8]:
             lines.append(f"  • {lesson}")
+
+    # On-device MobileViT perception map (local vision, redaction-aware).
+    lines.extend(_perception_block(screen_perception))
 
     if history:
         lines.append("\nPrevious steps:")
@@ -174,6 +213,7 @@ def build_rethink_content(
     history: list[dict],
     warnings: list[str] | None = None,
     verified_targets: list[dict] | None = None,
+    screen_perception: dict | None = None,
 ) -> list[dict]:
     """Build content for the /rethink endpoint: force an alternative plan after
     the agent reports it is stuck or blocked.
@@ -209,6 +249,9 @@ def build_rethink_content(
         for vt in verified_targets[:8]:
             lines.append(f"  target #{vt.get('id')} = {vt.get('desc', '')}  → if you act on this element, use exactly this integer id.")
         lines.append("")
+
+    # On-device MobileViT perception map (local vision, redaction-aware).
+    lines.extend(_perception_block(screen_perception))
 
     lines.append("History of what you already tried:")
     lines.append("")

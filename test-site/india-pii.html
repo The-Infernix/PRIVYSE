@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KYC Verification — Arogya Insurance</title>
+    <style>
+      :root { color-scheme: light; }
+      body { margin: 0; padding: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #eef2f7; color: #0f172a; }
+      header { background: #0e7490; color: #fff; padding: 14px 24px; }
+      header h1 { margin: 0; font-size: 18px; }
+      main { max-width: 760px; margin: 24px auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; }
+      h2 { margin: 0 0 16px; font-size: 15px; }
+      form { display: grid; gap: 14px; }
+      label { display: grid; gap: 5px; font-size: 13px; color: #0f172a; font-weight: 600; }
+      input { border: 1px solid #cbd5e1; border-radius: 7px; padding: 9px 11px; font-size: 14px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .actions { display: flex; justify-content: space-between; margin-top: 10px; }
+      button { background: #0e7490; color: #fff; border: 0; border-radius: 7px; padding: 11px 20px; font-size: 14px; font-weight: 600; cursor: pointer; }
+      a { color: #0e7490; font-size: 13px; }
+      .note { font-size: 11px; color: #94a3b8; font-weight: 400; }
+    </style>
+  </head>
+  <body>
+    <header><h1>Arogya Insurance — KYC verification</h1></header>
+    <main>
+      <h2>Verify your identity</h2>
+      <form id="kyc-form" action="index.html">
+        <label>UPI ID (to verify linked mobile)
+          <input name="upi" autocomplete="upi" placeholder="mobilenumber@bank" data-gt="upi:9876543210@ybl" value="9876543210@ybl" />
+        </label>
+        <label>Voter ID (EPIC)
+          <input name="voterid" autocomplete="voter-id" data-gt="voterid:ABC1234567" value="ABC1234567" />
+        </label>
+        <label>Driving licence number
+          <input name="dlno" autocomplete="driving-license" data-gt="dl:MH-01-2023-4567890" value="MH-01-2023-4567890" />
+        </label>
+        <label>Passport number
+          <input name="passport" autocomplete="passport" data-gt="passport:K1234567" value="K1234567" />
+        </label>
+        <p class="note">KYC records are stored in the insurer vault only after OTP-verified consent. Customer care: 1800-266-1100.</p>
+        <div class="actions">
+          <a href="index.html">← Back</a>
+          <button type="submit">Submit KYC</button>
+        </div>
+      </form>
+    </main>
+  </body>
+</html>

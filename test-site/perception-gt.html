@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  html, body { margin: 0; padding: 0; background: #f4f4f1; }
+  .cell { position: absolute; width: 400px; height: 800px; }
+  .cell canvas { width: 100%; height: 100%; display: block; }
+</style>
+</head>
+<body>
+  <!-- Fixed 1200x1600 viewport = 3 cols x 2 rows of 400x800 tiles; the
+       perception grid samples exactly these cells. GT tag per row-major index
+       read from document order via [data-gt-tile]. -->
+  <div class="cell" data-gt-tile="photo" style="left:0;top:0"><canvas id="c-photo" width="400" height="800"></canvas></div>
+  <div class="cell" data-gt-tile="ui" style="left:400;top:0"><canvas id="c-ui" width="400" height="800"></canvas></div>
+  <div class="cell" data-gt-tile="document" style="left:800;top:0"><canvas id="c-doc" width="400" height="800"></canvas></div>
+  <div class="cell" data-gt-tile="data" style="left:0;top:800"><canvas id="c-data" width="400" height="800"></canvas></div>
+  <div class="cell" data-gt-tile="blank" style="left:400;top:800"><canvas id="c-blank" width="400" height="800"></canvas></div>
+  <div class="cell" data-gt-tile="blank" style="left:800;top:800"><canvas id="c-blank2" width="400" height="800"></canvas></div>
+
+<script>
+const W = 400, H = 800;
+const cv = (id) => document.getElementById(id);
+const cx = (id) => cv(id).getContext("2d");
+
+// photo: layered natural scene (sky gradient, sun, mountains, noise texture)
+(() => {
+  const c = cv("c-photo"), ctx = cx("c-photo");
+  ctx.fillStyle = "transparent"; ctx.fillRect(0, 0, W, H);
+  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.55);
+  sky.addColorStop(0, "#4a90d9"); sky.addColorStop(1, "#bcd9ef");
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H * 0.55);
+  ctx.fillStyle = "#fff3c4";
+  ctx.beginPath(); ctx.arc(300, 120, 46, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#dfeffa";
+  [[70, 150, 60], [200, 130, 80], [330, 170, 55]].forEach(([x, y, r]) => {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.fillStyle = "#5c7d56";
+  ctx.beginPath(); ctx.moveTo(0, H * 0.55); ctx.lineTo(140, H * 0.32); ctx.lineTo(400, H * 0.55); ctx.closePath(); ctx.fill();
+  const grnd = ctx.createLinearGradient(0, H * 0.55, 0, H);
+  grnd.addColorStop(0, "#8aa76f"); grnd.addColorStop(1, "#4d6a3c");
+  ctx.fillStyle = grnd; ctx.fillRect(0, H * 0.55, W, H * 0.45);
+  // water
+  ctx.globalAlpha = 0.35; ctx.fillStyle = "#2b4a8a";
+  ctx.beginPath(); ctx.arc(120, H * 0.78, 200, 0, Math.PI); ctx.fill(); ctx.globalAlpha = 1;
+  // texture noise for realism
+  const img = ctx.getImageData(0, 0, W, H);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (Math.random() - 0.5) * 14;
+    img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n;
+  }
+  ctx.putImageData(img, 0, 0);
+})();
+
+// ui: flat app/browser chrome (menu bar, address pill, sidebar, cards, buttons)
+(() => {
+  const c = cv("c-ui"), ctx = cx("c-ui");
+  ctx.fillStyle = "#fafbfc"; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#2f3b52"; ctx.fillRect(0, 0, W, 64);
+  ctx.fillStyle = "#c7d2e0"; ctx.fillRect(10, 22, 220, 20);
+  ctx.fillStyle = "#4a9eff"; ctx.beginPath(); ctx.roundRect(330, 14, 58, 36, 6); ctx.fill();
+  ctx.fillStyle = "#e8eef5"; ctx.beginPath(); ctx.roundRect(40, 90, 320, 40, 20); ctx.fill();
+  ctx.fillStyle = "#94a3b8"; ctx.fillRect(60, 104, 200, 12);
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(260, 98, 84, 24);
+  ctx.fillStyle = "#eef2f7"; ctx.beginPath(); ctx.roundRect(0, 150, 120, H - 150, 0); ctx.fill();
+  ctx.fillStyle = "#c3cbdb"; [[16, 190, 90, 12], [16, 230, 90, 12], [16, 270, 90, 12], [16, 310, 90, 12], [16, 350, 90, 12]].forEach(([x, y, w, h]) => ctx.fillRect(x, y, w, h));
+  ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.roundRect(140, 180, 250, 150, 12); ctx.fill();
+  ctx.fillStyle = "#4a9eff"; ctx.beginPath(); ctx.roundRect(160, 220, 210, 30, 15); ctx.fill();
+  ctx.fillStyle = "#e5ebf2"; ctx.beginPath(); ctx.roundRect(160, 270, 120, 18, 9); ctx.fill();
+  ctx.fillStyle = "#9aa8bb"; ctx.beginPath(); ctx.roundRect(220, 200, 130, 12, 6); ctx.fill();
+  ctx.fillStyle = "#eef2f7"; ctx.beginPath(); ctx.roundRect(140, 360, 250, 390, 12); ctx.fill();
+  ctx.fillStyle = "#c3cbdb";
+  [[160, 400, 200, 14], [160, 440, 170, 14], [160, 480, 210, 14]].forEach(([x, y, w, h]) => ctx.fillRect(x, y, w, h));
+})();
+
+// document: letter-style white sheet with heading, paragraphs, signature
+(() => {
+  const c = cv("c-doc"), ctx = cx("c-doc");
+  ctx.fillStyle = "#eef0f3"; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(24, 24, W - 48, H - 48);
+  ctx.fillStyle = "#1f2937"; ctx.fillRect(60, 60, 200, 22);
+  ctx.fillStyle = "#cbd5e1"; ctx.fillRect(60, 110, 280, 10);
+  ctx.fillStyle = "#9ca3af"; ctx.fillRect(60, 132, 280, 10);
+  ctx.fillStyle = "#d1d5db";
+  for (let y = 170; y < 620; y += 26) {
+    const w = 240 + ((y / 26) % 3) * 30;
+    ctx.fillRect(60, y, w, 9);
+  }
+  ctx.fillStyle = "#2f3b52"; ctx.fillRect(60, 660, 150, 12);
+  ctx.fillStyle = "#b45309"; ctx.beginPath(); ctx.moveTo(70, 700); ctx.quadraticCurveTo(120, 660, 170, 700); ctx.lineWidth = 2; ctx.strokeStyle = "#b45309"; ctx.stroke();
+})();
+
+// data: analytics dashboard — axes, area chart, bar chart, legend
+(() => {
+  const c = cv("c-data"), ctx = cx("c-data");
+  ctx.fillStyle = "#0f172a"; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#1e293b"; ctx.fillRect(24, 24, W - 48, H - 48);
+  ctx.strokeStyle = "#334155"; ctx.lineWidth = 1;
+  for (let y = 60; y < H - 40; y += 60) { ctx.beginPath(); ctx.moveTo(60, y); ctx.lineTo(W - 40, y); ctx.stroke(); }
+  const area = ctx.createLinearGradient(0, 60, 0, 460);
+  area.addColorStop(0, "rgba(96,165,250,.55)"); area.addColorStop(1, "rgba(96,165,250,.05)");
+  ctx.beginPath(); ctx.moveTo(60, 460);
+  [[80, 400], [140, 300], [200, 340], [260, 180], [320, 220], [360, 120]].forEach(([x, y]) => ctx.lineTo(x, y));
+  ctx.lineTo(360, 460); ctx.closePath(); ctx.fillStyle = area; ctx.fill();
+  ctx.strokeStyle = "#60a5fa"; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(60, 460);
+  [[80, 400], [140, 300], [200, 340], [260, 180], [320, 220], [360, 120]].forEach(([x, y]) => ctx.lineTo(x, y));
+  ctx.stroke();
+  const bars = [200, 280, 240, 320, 360, 300, 380, 340];
+  bars.forEach((h, i) => { ctx.fillStyle = "#34d399"; ctx.fillRect(64 + i * 36, 520 - h, 26, h); });
+  ctx.fillStyle = "#cbd5e1"; ctx.fillRect(80, 700, 90, 12);
+  ctx.fillStyle = "#34d399"; ctx.fillRect(200, 700, 12, 12);
+  ctx.fillStyle = "#cbd5e1"; ctx.fillRect(220, 700, 70, 12);
+})();
+</script>
+</body>
+</html>

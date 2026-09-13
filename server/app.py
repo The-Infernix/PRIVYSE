@@ -199,6 +199,9 @@ class ActRequest(BaseModel):
     # Injected as "use verbatim" so the VLM targets the known-good element.
     # Alias matches the TS protocol's camelCase field on the wire.
     verified_targets: list[VerifiedTarget] = Field(default_factory=list, alias="verifiedTargets")
+    # Compact on-device semantic map from the local MobileViT (computed BEFORE
+    # upload). Alias matches the TS protocol field.
+    screen_perception: Optional[dict] = Field(default=None, alias="screenPerception")
 
 
 class ActResponse(BaseModel):
@@ -590,6 +593,7 @@ def act_stream(req: ActRequest):
         lessons=req.lessons,
         warnings=req.warnings,
         verified_targets=[vt.model_dump() for vt in req.verified_targets],
+        screen_perception=req.screen_perception,
     )
 
     return StreamingResponse(
@@ -712,6 +716,7 @@ async def act(req: ActRequest) -> ActResponse:
         lessons=req.lessons,
         warnings=req.warnings,
         verified_targets=[vt.model_dump() for vt in req.verified_targets],
+        screen_perception=req.screen_perception,
     )
 
     resp = _call_and_parse(user_content, req.model, dom_dicts)
@@ -754,6 +759,7 @@ def rethink(req: ActRequest) -> ActResponse:
         history=history_dicts,
         warnings=req.warnings,
         verified_targets=[vt.model_dump() for vt in req.verified_targets],
+        screen_perception=req.screen_perception,
     )
 
     resp = _call_and_parse(user_content, req.model, dom_dicts)

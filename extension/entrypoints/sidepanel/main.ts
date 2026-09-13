@@ -84,6 +84,8 @@ interface SessionPrivacy {
   protected: number;
   leaked: number;
   pass: boolean;
+  /** On-device ViT perception summary for the history readout. */
+  perceptionSummary?: { ms: number; tiles: string; escalate: number };
 }
 interface StoredSession {
   id: number;
@@ -297,7 +299,10 @@ function privacySummary(s: StoredSession): string {
   const p = s.privacy;
   if (!p) return "";
   const gate = p.pass ? "PASS" : "LEAK";
-  return `${p.protected} protected · 0 leaked · ${gate}`;
+  const perc = p.perceptionSummary && p.perceptionSummary.tiles
+    ? ` · perception ${p.perceptionSummary.tiles}`
+    : "";
+  return `${p.protected} protected · 0 leaked · ${gate}${perc}`;
 }
 
 function sessionCard(s: StoredSession, index: number): HTMLElement {
@@ -524,6 +529,28 @@ function renderPrivacy(m: Extract<ExtMessage, { type: "privacy" }>) {
   for (const t of m.tokens) {
     pvListEl.appendChild(pvTokenRow(t.type, t.masked, t.token));
     hasRows = true;
+  }
+
+  // On-device ViT screen perception (PS §1) — a single summary row.
+  const p = m.perception;
+  if (p && p.enabled) {
+    const parts: string[] = [];
+    const order: [string, string][] = [["photo","photo"],["ui","ui"],["document","doc"],["data","data"],["blank","blank"]];
+    for (const [tag, lbl] of order) {
+      const n = (p.summary as Record<string, number>)?.[tag] ?? 0;
+      if (n) parts.push(`${n} ${lbl}`);
+    }
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="pv-tag">perception</span><span class="pv-ok" title="local ViT${p.escalate ? `, escalated ${p.escalate} image region(s)` : ""}" style="font-size:0.78em;max-width:55%;word-break:break-word">${parts.join(", ") || "—"}</span>`;
+    pvListEl.appendChild(li);
+    hasRows = true;
+    if (current) {
+      current.privacy!.perceptionSummary = {
+        ms: p.ms,
+        tiles: parts.join(" "),
+        escalate: p.escalate,
+      };
+    }
   }
   if (!hasRows) {
     const li = document.createElement("li");

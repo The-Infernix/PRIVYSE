@@ -13,6 +13,12 @@
 // every other redaction box).
 
 import { detectPii } from "./pii-rules";
+import {
+  perceiveScreen,
+  warmPerception,
+  setModelBase as setPerceptionModelBase,
+  type ScreenPerception,
+} from "./perception";
 
 export type Box = [number, number, number, number];
 
@@ -40,6 +46,8 @@ export interface VisionResult {
   faces: Box[];
   ocr: OcrHit[];
   stats: VisionStats;
+  /** On-device MobileViT screen perception (PS §1: local ViT reads the screen). */
+  perception?: ScreenPerception;
 }
 
 export interface ZeroLeakHit {
@@ -59,6 +67,7 @@ let modelBase: string | null = null;
 
 export function setModelBase(url: string): void {
   modelBase = url.replace(/\/$/, "") + "/";
+  setPerceptionModelBase(modelBase);
 }
 
 export function getModelBase(): string | null {
@@ -149,11 +158,16 @@ export async function getModelsMB(): Promise<number> {
   return modelsMB;
 }
 
-/** Explicitly initialize BOTH model stacks (face + OCR) so a later runVision
- * call doesn't pay the cold load. Used by the offscreen warm path. */
+/** Explicitly initialize ALL model stacks (face + OCR + ViT perception) so a
+ * later runVision call doesn't pay the cold load. Used by the offscreen warm path. */
 export async function warmVision(): Promise<void> {
   await getFaceDetector();
   await getTesseract();
+  try {
+    await warmPerception();
+  } catch {
+    /* perception is best-effort; faces/OCR are the privacy-critical cores */
+  }
 }
 
 export async function terminateVision(): Promise<void> {
@@ -477,49 +491,86 @@ export async function runVision(input: VisionInput): Promise<VisionResult | null
     ocrHits: 0,
     skipped: [],
   };
-  const out: VisionResult = { faces: [], ocr: [], stats };
+  const out: VisionResult = { faces: [], ocr: [], stats, perception: undefined };
 
+  // The three on-device passes are INDEPENDENT — run them concurrently so the
+  // wall-clock vision cost is max(face, OCR, perception), not their sum. Every
+  // pass is individually bounded (own timeout) AND best-effort: a failure of
+  // any one must never starve or block the others (see the fail-closed audit).
+  const statsMB = getModelsMB().catch(() => 0);
+  const regions = input.imageRegions ?? [];
+  const pass = {
+    perception: (async () => {
+      try {
+        const p = await withTimeout(
+          perceiveScreen({
+            imageDataUrl: input.imageDataUrl,
+            imageRegions: input.imageRegions,
+            budgetMs: 2500,
+            maxTiles: 6,
+          }),
+          7000,
+          "perception-timeout",
+        );
+            out.perception = p;
+        if (p.enabled) {
+          stats.skipped.push(
+            `perception: ok (${p.ms}ms, ${Object.entries(p.summary)
+              .map(([t, n]) => `${t}=${n}`)
+              .join(" ")})`,
+          );
+        }
+      } catch (e) {
+        stats.skipped.push("perception:" + errMsg(e));
+      }
+    })(),
+    faces: (async () => {
+      try {
+        const f = await withTimeout(
+          detectFaces(input.imageDataUrl, input.imageRegions),
+          10000,
+          "face-timeout",
+        );
+        out.faces = f.faces;
+        stats.faceMs = f.ms;
+        stats.facesFound = f.faces.length;
+        // Same taint policy as OCR: a non-DOM region holding a face is redacted
+        // whole (the padded face box remains only for faces outside any region).
+        if (input.imageRegions?.length) {
+          out.faces = out.faces.map(
+            (f2) => containingRegion(f2, input.imageRegions!) ?? f2,
+          );
+        }
+      } catch (e) {
+        stats.skipped.push("face:" + errMsg(e));
+      }
+    })(),
+    ocr:
+      regions.length > 0
+        ? (async () => {
+            stats.ocrRegions = regions.length;
+            try {
+              const o = await withTimeout(
+                ocrRegionsPii(input.imageDataUrl, regions),
+                12000,
+                "ocr-timeout",
+              );
+              out.ocr = o.hits;
+              stats.ocrMs = o.ms;
+              stats.ocrHits = o.hits.length;
+              stats.skipped.push(...o.skipped);
+            } catch (e) {
+              stats.skipped.push("ocr:" + errMsg(e));
+            }
+          })()
+        : Promise.resolve(),
+  };
+
+  await Promise.all([statsMB, pass.perception, pass.faces, pass.ocr]);
   try {
-    stats.modelsMB = await getModelsMB();
+    stats.modelsMB = await statsMB;
   } catch {
     stats.modelsMB = 0;
-  }
-
-  try {
-    const f = await withTimeout(
-      detectFaces(input.imageDataUrl, input.imageRegions),
-      10000,
-      "face-timeout",
-    );
-    out.faces = f.faces;
-    stats.faceMs = f.ms;
-    stats.facesFound = f.faces.length;
-    // Same taint policy as OCR: a non-DOM region holding a face is redacted
-    // whole (the padded face box remains only for faces outside any region).
-    if (input.imageRegions?.length) {
-      out.faces = out.faces.map(
-        (f2) => containingRegion(f2, input.imageRegions!) ?? f2,
-      );
-    }
-  } catch (e) {
-    stats.skipped.push("face:" + errMsg(e));
-  }
-
-  if (input.imageRegions && input.imageRegions.length > 0) {
-    stats.ocrRegions = input.imageRegions.length;
-    try {
-      const o = await withTimeout(
-        ocrRegionsPii(input.imageDataUrl, input.imageRegions),
-        12000,
-        "ocr-timeout",
-      );
-      out.ocr = o.hits;
-      stats.ocrMs = o.ms;
-      stats.ocrHits = o.hits.length;
-      stats.skipped.push(...o.skipped);
-    } catch (e) {
-      stats.skipped.push("ocr:" + errMsg(e));
-    }
   }
 
   return out;

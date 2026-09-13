@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-09-07T16:34:11.328Z",
+  "generated_at": "2026-09-13T17:30:02.883Z",
   "model_set": [
     "qwen2.5vl:3b",
     "qwen2.5vl:7b"
   ],
-  "test_site_pages": 6,
+  "test_site_pages": 7,
   "per_criterion": {
     "visual_context_accuracy": {
       "weight": 0.25,
@@ -33,9 +33,9 @@
       "weight": 0.2,
       "metric": "detection P/R (pixel IoU) over GT-labelled pages",
       "overview": {
-        "precisionPx": 0.959,
+        "precisionPx": 0.968,
         "recallPx": 1,
-        "f1Px": 0.979
+        "f1Px": 0.984
       },
       "categories": {
         "name": {
@@ -58,9 +58,9 @@
           "gtElements": 2,
           "recallElements": 2,
           "recallElementPct": 100,
-          "precisionPx": 0.897,
+          "precisionPx": 0.339,
           "recallPx": 0.999,
-          "f1Px": 0.945
+          "f1Px": 0.506
         },
         "pan": {
           "gtElements": 2,
@@ -125,6 +125,38 @@
           "precisionPx": 1,
           "recallPx": 1,
           "f1Px": 1
+        },
+        "upi": {
+          "gtElements": 1,
+          "recallElements": 1,
+          "recallElementPct": 100,
+          "precisionPx": 1,
+          "recallPx": 1,
+          "f1Px": 1
+        },
+        "voterid": {
+          "gtElements": 1,
+          "recallElements": 1,
+          "recallElementPct": 100,
+          "precisionPx": 1,
+          "recallPx": 1,
+          "f1Px": 1
+        },
+        "dl": {
+          "gtElements": 1,
+          "recallElements": 1,
+          "recallElementPct": 100,
+          "precisionPx": 1,
+          "recallPx": 1,
+          "f1Px": 1
+        },
+        "passport": {
+          "gtElements": 1,
+          "recallElements": 1,
+          "recallElementPct": 100,
+          "precisionPx": 1,
+          "recallPx": 1,
+          "f1Px": 1
         }
       },
       "zero_leak_pass": true
@@ -132,22 +164,22 @@
     "redaction_precision": {
       "weight": 0.2,
       "metric": "(redacted ∩ GT) / redacted pixels",
-      "precision_px": 0.959,
+      "precision_px": 0.968,
       "recall_px": 1,
-      "f1_px": 0.979
+      "f1_px": 0.984
     },
     "client_resources": {
       "weight": 0.2,
       "metric": "client-side work per step",
-      "capture_ms": 115.7,
-      "serialize_ms": 2.1,
-      "vision_ms": 303.4,
-      "sanitize_ms": 63,
-      "zero_leak_ocr_ms": 611.4,
+      "capture_ms": 106,
+      "serialize_ms": 1.6,
+      "vision_ms": 1700.9,
+      "sanitize_ms": 99.1,
+      "zero_leak_ocr_ms": 543.2,
       "faces_found": 2,
       "ocr_hits": 1,
-      "weights_mb": 0,
-      "total_assets_mb": 21.38,
+      "weights_mb": 8.15,
+      "total_assets_mb": 40.76,
       "weights_breakdown": "BlazeFace short-range tflite (~0.23 MB) + tesseract eng fast traineddata (~1.98 MB); remainder is WASM runtime glue (MediaPipe + Tesseract), all bundled — no CDN fetches",
       "notes": "On-device vision live: MediaPipe face blur (Tier C) + region-restricted Tesseract OCR; zero-leak gate = DOM regex scan + OCR of the sanitized screenshot"
     },
@@ -223,28 +255,28 @@
           "mean": 0
         }
       },
-      "per_step_e2e_7b_ms": 19421,
+      "per_step_e2e_7b_ms": 20776,
       "target": "p50 < 5000 ms/step (Phase 4)",
       "hardware_note": "dev box = RTX 3050 4GB VRAM; qwen2.5vl:7b (6.2GB) runs 75% CPU / 25% GPU — image tokens floor at ~1024 so prefill+decode are CPU-bound (~10.5s minimal prompt probe). VLM_MAX_TOKENS=128 + compact system prompt + IMAGE_MAX_SIDE resize reduce context cost; routed mode sends interactive steps to 3b (~7.5–8.0s) and only read/report steps to 7b. Reaching <5s/step requires VRAM ≥ model size (judge hardware), or a GPU-resident small model."
     }
   },
   "scorecard": {
     "pii_detection": {
-      "f1": 0.979,
+      "f1": 0.984,
       "ok": true
     },
     "redaction": {
-      "precision": 0.959
+      "precision": 0.968
     },
     "visual_context": {
       "best_rate": 1
     },
     "client_resources": {
       "ok": true,
-      "weights_mb": 0,
-      "total_assets_mb": 21.38
+      "weights_mb": 8.15,
+      "total_assets_mb": 40.76
     },
-    "latency_e2e_7b_ms_per_step": 19421,
+    "latency_e2e_7b_ms_per_step": 20776,
     "latency_routed_ms_per_step": 12714
   }
 }

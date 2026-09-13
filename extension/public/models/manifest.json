@@ -1,15 +1,18 @@
 {
- "totalBytes": 22419402,
- "files": {
-  "undefinedface/detector_short.tflite": 229746,
-  "undefinedmanifest.json": 1058,
-  "undefinedmp/vision_wasm_internal.js": 323377,
-  "undefinedmp/vision_wasm_internal.wasm": 11756954,
-  "undefinedtesseract/tesseract.min.js": 62961,
-  "undefinedtesseract/worker.min.js": 111307,
-  "undefinedtesseract-core/tesseract-core-lstm.wasm.js": 3896484,
-  "undefinedtesseract-core/tesseract-core-relaxedsimd-lstm.wasm.js": 3905767,
-  "undefinedtesseract-lang/eng.traineddata.gz": 1976309,
-  "undefinedvision_bundle.mjs": 155439
- }
+  "totalBytes": 42741742,
+  "files": {
+    "face/detector_short.tflite": 229746,
+    "mp/vision_wasm_internal.js": 323377,
+    "mp/vision_wasm_internal.wasm": 11756954,
+    "ort/ort-wasm-simd-threaded.mjs": 24218,
+    "ort/ort-wasm-simd-threaded.wasm": 13961845,
+    "perception/imagenet-1k-id2label.json": 33568,
+    "perception/model_quantized.onnx": 6303767,
+    "tesseract/tesseract.min.js": 62961,
+    "tesseract/worker.min.js": 111307,
+    "tesseract-core/tesseract-core-lstm.wasm.js": 3896484,
+    "tesseract-core/tesseract-core-relaxedsimd-lstm.wasm.js": 3905767,
+    "tesseract-lang/eng.traineddata.gz": 1976309,
+    "vision_bundle.mjs": 155439
+  }
 }

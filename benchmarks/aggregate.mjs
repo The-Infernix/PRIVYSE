@@ -43,7 +43,7 @@ const modelsManifest = (() => {
 })();
 const clientWeightsMB = modelsManifest
   ? +(Object.entries(modelsManifest.files ?? {})
-      .filter(([f]) => f.startsWith("face/") || f.startsWith("tesseract-lang/"))
+      .filter(([f]) => f.startsWith("face/") || f.startsWith("tesseract-lang/") || f.startsWith("perception/"))
       .reduce((a, [, b]) => a + Number(b), 0) / 1048576).toFixed(2)
   : null;
 const clientAssetsMB = sanitizer?.vision?.modelsMB ?? 0;

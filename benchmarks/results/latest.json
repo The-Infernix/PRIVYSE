@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-07T16:32:30.540Z",
+  "generated_at": "2026-09-13T17:29:47.765Z",
   "pages": [
     {
       "page": "flight-booking.html",
@@ -152,17 +152,95 @@
           ]
         }
       ],
-      "bodySizeBytes": 60317,
+      "bodySizeBytes": 61425,
       "faces": [],
       "ocrHits": [],
+      "perception": {
+        "version": 1,
+        "model": "mobilevit-small (q8, on-device)",
+        "enabled": true,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 549,
+            "label": "envelope",
+            "conf": 0.04889446869492531
+          },
+          {
+            "x": 427,
+            "y": 0,
+            "w": 427,
+            "h": 1200,
+            "tag": "uncertain",
+            "cls": 549,
+            "label": "envelope",
+            "conf": 0.371304452419281
+          },
+          {
+            "x": 854,
+            "y": 0,
+            "w": 426,
+            "h": 1200,
+            "tag": "uncertain",
+            "cls": 530,
+            "label": "digital clock",
+            "conf": 0.23617516458034515
+          },
+          {
+            "x": 0,
+            "y": 1200,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 427,
+            "y": 1200,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 854,
+            "y": 1200,
+            "w": 426,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          }
+        ],
+        "summary": {
+          "blank": 4,
+          "uncertain": 2
+        },
+        "decisions": {
+          "escalate": [],
+          "ocrPriority": [],
+          "captchaLike": []
+        },
+        "ms": 1994,
+        "modelMB": 6.3
+      },
       "regions": [],
       "timingsMs": {
-        "serialize": 2.6000000000931323,
-        "vision": 347.39999999990687,
-        "sanitize": 80.1999999997206,
-        "imageGate": 728.7999999998137,
-        "total": 82.79999999981374,
-        "capture": 262
+        "serialize": 2.599999999627471,
+        "vision": 1996.199999999255,
+        "sanitize": 116.5,
+        "imageGate": 629.3999999985099,
+        "total": 119.09999999962747,
+        "capture": 140
       }
     },
     {
@@ -249,17 +327,95 @@
           ]
         }
       ],
-      "bodySizeBytes": 52862,
+      "bodySizeBytes": 53826,
       "faces": [],
       "ocrHits": [],
+      "perception": {
+        "version": 1,
+        "model": "mobilevit-small (q8, on-device)",
+        "enabled": true,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 443,
+            "label": "bib",
+            "conf": 0.1012844517827034
+          },
+          {
+            "x": 427,
+            "y": 0,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 549,
+            "label": "envelope",
+            "conf": 0.09232377260923386
+          },
+          {
+            "x": 854,
+            "y": 0,
+            "w": 426,
+            "h": 1200,
+            "tag": "photo",
+            "cls": 398,
+            "label": "abacus",
+            "conf": 0.626225471496582
+          },
+          {
+            "x": 0,
+            "y": 1200,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 427,
+            "y": 1200,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 854,
+            "y": 1200,
+            "w": 426,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          }
+        ],
+        "summary": {
+          "blank": 5,
+          "photo": 1
+        },
+        "decisions": {
+          "escalate": [],
+          "ocrPriority": [],
+          "captchaLike": []
+        },
+        "ms": 1603,
+        "modelMB": 6.3
+      },
       "regions": [],
       "timingsMs": {
-        "serialize": 2.099999999627471,
-        "vision": 209.70000000018626,
-        "sanitize": 63.60000000009313,
-        "imageGate": 675,
-        "total": 65.6999999997206,
-        "capture": 87
+        "serialize": 1.199999999254942,
+        "vision": 1605,
+        "sanitize": 116.10000000149012,
+        "imageGate": 567.1999999992549,
+        "total": 117.30000000074506,
+        "capture": 111
       }
     },
     {
@@ -313,17 +469,94 @@
           ]
         }
       ],
-      "bodySizeBytes": 41988,
+      "bodySizeBytes": 42950,
       "faces": [],
       "ocrHits": [],
+      "perception": {
+        "version": 1,
+        "model": "mobilevit-small (q8, on-device)",
+        "enabled": true,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 427,
+            "y": 0,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 854,
+            "y": 0,
+            "w": 426,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 0,
+            "y": 1200,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 427,
+            "y": 1200,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 854,
+            "y": 1200,
+            "w": 426,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          }
+        ],
+        "summary": {
+          "blank": 6
+        },
+        "decisions": {
+          "escalate": [],
+          "ocrPriority": [],
+          "captchaLike": []
+        },
+        "ms": 1566,
+        "modelMB": 6.3
+      },
       "regions": [],
       "timingsMs": {
-        "serialize": 1.3000000002793968,
-        "vision": 175.39999999990687,
-        "sanitize": 55.60000000009313,
-        "imageGate": 593.5,
-        "total": 56.90000000037253,
-        "capture": 85
+        "serialize": 1.099999999627471,
+        "vision": 1567.5,
+        "sanitize": 118.5,
+        "imageGate": 523.9000000003725,
+        "total": 119.59999999962747,
+        "capture": 73
       }
     },
     {
@@ -411,17 +644,94 @@
           ]
         }
       ],
-      "bodySizeBytes": 50379,
+      "bodySizeBytes": 51366,
       "faces": [],
       "ocrHits": [],
+      "perception": {
+        "version": 1,
+        "model": "mobilevit-small (q8, on-device)",
+        "enabled": true,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 549,
+            "label": "envelope",
+            "conf": 0.1548844426870346
+          },
+          {
+            "x": 427,
+            "y": 0,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 753,
+            "label": "radiator",
+            "conf": 0.051908157765865326
+          },
+          {
+            "x": 854,
+            "y": 0,
+            "w": 426,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 529,
+            "label": "diaper, nappy, napkin",
+            "conf": 0.04818013310432434
+          },
+          {
+            "x": 0,
+            "y": 1200,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 427,
+            "y": 1200,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 854,
+            "y": 1200,
+            "w": 426,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          }
+        ],
+        "summary": {
+          "blank": 6
+        },
+        "decisions": {
+          "escalate": [],
+          "ocrPriority": [],
+          "captchaLike": []
+        },
+        "ms": 1477,
+        "modelMB": 6.3
+      },
       "regions": [],
       "timingsMs": {
-        "serialize": 1.7000000001862645,
-        "vision": 188.59999999962747,
-        "sanitize": 54.40000000037253,
-        "imageGate": 625.9000000003725,
-        "total": 56.10000000055879,
-        "capture": 70
+        "serialize": 1.300000000745058,
+        "vision": 1478.5999999996275,
+        "sanitize": 86.30000000074506,
+        "imageGate": 549.6999999992549,
+        "total": 87.60000000149012,
+        "capture": 118
       }
     },
     {
@@ -474,23 +784,100 @@
           ]
         }
       ],
-      "bodySizeBytes": 41574,
+      "bodySizeBytes": 42556,
       "faces": [],
       "ocrHits": [],
+      "perception": {
+        "version": 1,
+        "model": "mobilevit-small (q8, on-device)",
+        "enabled": true,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 427,
+            "y": 0,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 854,
+            "y": 0,
+            "w": 426,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 0,
+            "y": 1200,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 427,
+            "y": 1200,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 854,
+            "y": 1200,
+            "w": 426,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          }
+        ],
+        "summary": {
+          "blank": 6
+        },
+        "decisions": {
+          "escalate": [],
+          "ocrPriority": [],
+          "captchaLike": []
+        },
+        "ms": 1569,
+        "modelMB": 6.3
+      },
       "regions": [],
       "timingsMs": {
-        "serialize": 1.3999999999068677,
-        "vision": 163.5,
-        "sanitize": 55.89999999990687,
-        "imageGate": 603.8000000002794,
-        "total": 57.299999999813735,
-        "capture": 67
+        "serialize": 1.3999999985098839,
+        "vision": 1570.4000000003725,
+        "sanitize": 85.80000000074506,
+        "imageGate": 502.2000000011176,
+        "total": 87.19999999925494,
+        "capture": 97
       }
     },
     {
       "page": "pii-in-the-wild.html",
       "domElements": 10,
-      "redactions": 10,
+      "redactions": 12,
       "preds": [
         {
           "type": "email",
@@ -599,6 +986,26 @@
           ],
           "tier": "B",
           "token": "[ACCOUNT_1]"
+        },
+        {
+          "type": "graphics",
+          "box": [
+            279,
+            1000,
+            362,
+            46
+          ],
+          "tier": "C"
+        },
+        {
+          "type": "graphics",
+          "box": [
+            279,
+            1092,
+            362,
+            34
+          ],
+          "tier": "C"
         }
       ],
       "gt": [
@@ -735,7 +1142,7 @@
           ]
         }
       ],
-      "bodySizeBytes": 96683,
+      "bodySizeBytes": 93553,
       "faces": [
         [
           279,
@@ -768,6 +1175,206 @@
           ]
         }
       ],
+      "perception": {
+        "version": 1,
+        "model": "mobilevit-small (q8, on-device)",
+        "enabled": true,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 427,
+            "h": 1200,
+            "tag": "photo",
+            "cls": 811,
+            "label": "space heater",
+            "conf": 0.5069888234138489
+          },
+          {
+            "x": 427,
+            "y": 0,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 498,
+            "label": "cinema, movie theater, movie theatre, movie house, picture palace",
+            "conf": 0.10067463666200638
+          },
+          {
+            "x": 854,
+            "y": 0,
+            "w": 426,
+            "h": 1200,
+            "tag": "photo",
+            "cls": 905,
+            "label": "window shade",
+            "conf": 0.7968347072601318
+          },
+          {
+            "x": 0,
+            "y": 1200,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 427,
+            "y": 1200,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          },
+          {
+            "x": 854,
+            "y": 1200,
+            "w": 426,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 620,
+            "label": "laptop, laptop computer",
+            "conf": 0.07833179086446762
+          }
+        ],
+        "summary": {
+          "photo": 2,
+          "blank": 4
+        },
+        "decisions": {
+          "escalate": [
+            {
+              "region": [
+                279,
+                787,
+                100,
+                100
+              ],
+              "tags": [
+                "photo"
+              ],
+              "reason": "on-device ViT: photo-like graphics (space heater, 51%)"
+            },
+            {
+              "region": [
+                397,
+                787,
+                100,
+                100
+              ],
+              "tags": [
+                "photo"
+              ],
+              "reason": "on-device ViT: photo-like graphics (space heater, 51%)"
+            },
+            {
+              "region": [
+                279,
+                1000,
+                362,
+                46
+              ],
+              "tags": [
+                "photo"
+              ],
+              "reason": "on-device ViT: photo-like graphics (space heater, 51%)"
+            },
+            {
+              "region": [
+                279,
+                1052,
+                362,
+                34
+              ],
+              "tags": [
+                "photo"
+              ],
+              "reason": "on-device ViT: photo-like graphics (space heater, 51%)"
+            },
+            {
+              "region": [
+                279,
+                1092,
+                362,
+                34
+              ],
+              "tags": [
+                "photo"
+              ],
+              "reason": "on-device ViT: photo-like graphics (space heater, 51%)"
+            }
+          ],
+          "ocrPriority": [
+            {
+              "region": [
+                279,
+                787,
+                100,
+                100
+              ],
+              "tags": [
+                "photo"
+              ],
+              "reason": "graphics region — OCR for embedded PII first"
+            },
+            {
+              "region": [
+                397,
+                787,
+                100,
+                100
+              ],
+              "tags": [
+                "photo"
+              ],
+              "reason": "graphics region — OCR for embedded PII first"
+            },
+            {
+              "region": [
+                279,
+                1000,
+                362,
+                46
+              ],
+              "tags": [
+                "photo"
+              ],
+              "reason": "graphics region — OCR for embedded PII first"
+            },
+            {
+              "region": [
+                279,
+                1052,
+                362,
+                34
+              ],
+              "tags": [
+                "photo"
+              ],
+              "reason": "graphics region — OCR for embedded PII first"
+            },
+            {
+              "region": [
+                279,
+                1092,
+                362,
+                34
+              ],
+              "tags": [
+                "photo"
+              ],
+              "reason": "graphics region — OCR for embedded PII first"
+            }
+          ],
+          "captchaLike": []
+        },
+        "ms": 1706,
+        "modelMB": 6.3
+      },
       "regions": [
         [
           279,
@@ -801,12 +1408,209 @@
         ]
       ],
       "timingsMs": {
-        "serialize": 3.599999999627471,
-        "vision": 735.6000000000931,
-        "sanitize": 68.20000000018626,
-        "imageGate": 441.3000000002794,
-        "total": 71.79999999981374,
-        "capture": 123
+        "serialize": 2.400000000372529,
+        "vision": 2096.9000000003725,
+        "sanitize": 74.5,
+        "imageGate": 401.59999999962747,
+        "total": 76.90000000037253,
+        "capture": 131
+      }
+    },
+    {
+      "page": "india-pii.html",
+      "domElements": 8,
+      "redactions": 5,
+      "preds": [
+        {
+          "type": "phone",
+          "box": [
+            260,
+            159,
+            760,
+            36
+          ],
+          "tier": "B",
+          "token": "[PHONE_1]"
+        },
+        {
+          "type": "upi",
+          "box": [
+            260,
+            159,
+            760,
+            36
+          ],
+          "tier": "B",
+          "token": "[UPI_1]"
+        },
+        {
+          "type": "voterid",
+          "box": [
+            260,
+            231,
+            760,
+            36
+          ],
+          "tier": "B",
+          "token": "[VOTERID_1]"
+        },
+        {
+          "type": "dl",
+          "box": [
+            260,
+            303,
+            760,
+            36
+          ],
+          "tier": "B",
+          "token": "[DL_1]"
+        },
+        {
+          "type": "passport",
+          "box": [
+            260,
+            375,
+            760,
+            36
+          ],
+          "tier": "B",
+          "token": "[PASSPORT_1]"
+        }
+      ],
+      "gt": [
+        {
+          "cat": "upi",
+          "value": "9876543210@ybl",
+          "phase2": false,
+          "box": [
+            260,
+            159,
+            760,
+            36
+          ]
+        },
+        {
+          "cat": "voterid",
+          "value": "ABC1234567",
+          "phase2": false,
+          "box": [
+            260,
+            231,
+            760,
+            36
+          ]
+        },
+        {
+          "cat": "dl",
+          "value": "MH-01-2023-4567890",
+          "phase2": false,
+          "box": [
+            260,
+            303,
+            760,
+            36
+          ]
+        },
+        {
+          "cat": "passport",
+          "value": "K1234567",
+          "phase2": false,
+          "box": [
+            260,
+            375,
+            760,
+            36
+          ]
+        }
+      ],
+      "bodySizeBytes": 61511,
+      "faces": [],
+      "ocrHits": [],
+      "perception": {
+        "version": 1,
+        "model": "mobilevit-small (q8, on-device)",
+        "enabled": true,
+        "tiles": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 904,
+            "label": "window screen",
+            "conf": 0.08670349419116974
+          },
+          {
+            "x": 427,
+            "y": 0,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 606,
+            "label": "iron, smoothing iron",
+            "conf": 0.10022789984941483
+          },
+          {
+            "x": 854,
+            "y": 0,
+            "w": 426,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 520,
+            "label": "crib, cot",
+            "conf": 0.21597377955913544
+          },
+          {
+            "x": 0,
+            "y": 1200,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 549,
+            "label": "envelope",
+            "conf": 0.1462867259979248
+          },
+          {
+            "x": 427,
+            "y": 1200,
+            "w": 427,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 549,
+            "label": "envelope",
+            "conf": 0.1462867259979248
+          },
+          {
+            "x": 854,
+            "y": 1200,
+            "w": 426,
+            "h": 1200,
+            "tag": "blank",
+            "cls": 549,
+            "label": "envelope",
+            "conf": 0.1462867259979248
+          }
+        ],
+        "summary": {
+          "blank": 6
+        },
+        "decisions": {
+          "escalate": [],
+          "ocrPriority": [],
+          "captchaLike": []
+        },
+        "ms": 1590,
+        "modelMB": 6.3
+      },
+      "regions": [],
+      "timingsMs": {
+        "serialize": 1.300000000745058,
+        "vision": 1591.9000000003725,
+        "sanitize": 96.29999999888241,
+        "imageGate": 628.0999999996275,
+        "total": 97.59999999962747,
+        "capture": 72
       }
     }
   ],
@@ -831,9 +1635,9 @@
       "gtElements": 2,
       "recallElements": 2,
       "recallElementPct": 100,
-      "precisionPx": 0.897,
+      "precisionPx": 0.339,
       "recallPx": 0.999,
-      "f1Px": 0.945
+      "f1Px": 0.506
     },
     "pan": {
       "gtElements": 2,
@@ -898,12 +1702,44 @@
       "precisionPx": 1,
       "recallPx": 1,
       "f1Px": 1
+    },
+    "upi": {
+      "gtElements": 1,
+      "recallElements": 1,
+      "recallElementPct": 100,
+      "precisionPx": 1,
+      "recallPx": 1,
+      "f1Px": 1
+    },
+    "voterid": {
+      "gtElements": 1,
+      "recallElements": 1,
+      "recallElementPct": 100,
+      "precisionPx": 1,
+      "recallPx": 1,
+      "f1Px": 1
+    },
+    "dl": {
+      "gtElements": 1,
+      "recallElements": 1,
+      "recallElementPct": 100,
+      "precisionPx": 1,
+      "recallPx": 1,
+      "f1Px": 1
+    },
+    "passport": {
+      "gtElements": 1,
+      "recallElements": 1,
+      "recallElementPct": 100,
+      "precisionPx": 1,
+      "recallPx": 1,
+      "f1Px": 1
     }
   },
   "overview": {
-    "precisionPx": 0.959,
+    "precisionPx": 0.968,
     "recallPx": 1,
-    "f1Px": 0.979
+    "f1Px": 0.984
   },
   "zeroLeak": {
     "pass": true,
@@ -915,20 +1751,41 @@
     "phase2TaggedGt": 4
   },
   "vision": {
-    "faceMs": 218.5,
-    "ocrMs": 79.9,
+    "faceMs": 242.4,
+    "ocrMs": 299.2,
     "facesFound": 2,
     "ocrRegions": 5,
     "ocrHits": 1,
-    "modelsMB": 21.380807876586914,
-    "skipped": []
+    "modelsMB": 40.761701583862305,
+    "skipped": [
+      "perception: ok (1994ms, blank=4 uncertain=2)",
+      "perception: ok (1603ms, blank=5 photo=1)",
+      "perception: ok (1566ms, blank=6)",
+      "perception: ok (1477ms, blank=6)",
+      "perception: ok (1569ms, blank=6)",
+      "perception: ok (1706ms, photo=2 blank=4)",
+      "perception: ok (1590ms, blank=6)"
+    ],
+    "perception": {
+      "pagesEnabled": 7,
+      "ms": 1643.6,
+      "photo": 3,
+      "ui": 0,
+      "document": 0,
+      "data": 0,
+      "blank": 37,
+      "uncertain": 2,
+      "escalate": 5,
+      "ocrPriority": 5
+    }
   },
   "latencyWaterfallMsAvg": {
-    "capture": 115.7,
-    "serialize": 2.1,
-    "vision": 303.4,
-    "sanitize": 63,
-    "imageGate": 611.4,
-    "total": 484.1
+    "capture": 106,
+    "serialize": 1.6,
+    "vision": 1700.9,
+    "perception": 1643.6,
+    "sanitize": 99.1,
+    "imageGate": 543.2,
+    "total": 1907.7
   }
 }

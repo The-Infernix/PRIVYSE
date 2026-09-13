@@ -1,0 +1,17 @@
+<!doctype html>
+<html><head><meta charset="utf-8"/><title>Obfuscated PII</title>
+<style>body{font-family:system-ui;margin:16px;background:#fffbea;border-left:4px solid #d97706;padding:16px}
+code{display:block;background:#fef3c7;border-radius:6px;padding:10px 14px;margin:6px 0;font-size:14px}
+h3{margin:0 0 6px}</style></head>
+<body>
+<h2>PII disguised / encoded</h2>
+<h3>base64 of a PAN</h3>
+<code>QUJDREUxMjNG</code> <span style="color:#666;font-size:12px">base64 decodes to ABCDE1234F</span>
+<h3>separated by HTML zero-width chars</h3>
+<p>name:&#8203;Pri&#8203;ya &#8203;P&#8203;al<br/>
+card:&#8203;4111 &#8203;1111 &#8203;1111 &#8203;1111</p>
+<h3>leetspeak + mixed case + dashes</h3>
+<p>ph0n3: 9&#8203;8+1 9-8-7-6-5 4-3-2-1-0</p>
+<p>v0t3r 1D: ABC-123-4567</p>
+<p>email: Priya_dot_Pal_at_example_dot_com (natural English prose)</p>
+</body></html>

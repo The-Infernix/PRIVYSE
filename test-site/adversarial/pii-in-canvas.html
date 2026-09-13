@@ -1,0 +1,31 @@
+<!doctype html>
+<html><head><meta charset="utf-8"/><title>PII on canvas</title>
+<style>body{font-family:system-ui;margin:16px;background:#0b1220}
+canvas{border:1px solid #334155;border-radius:8px;margin:0 16px 20px 0;background:#fff}</style></head>
+<body>
+<h2 style="color:#e2e8f0">Partners board (canvas)</h2>
+<canvas id="board" width="460" height="300"></canvas>
+<canvas id="cheque" width="420" height="200"></canvas>
+<script>
+const b = document.getElementById("board").getContext("2d");
+b.fillStyle = "#f8fafc"; b.fillRect(0, 0, 460, 300);
+b.font = "16px monospace"; b.fillStyle = "#0f172a";
+b.fillText("THANK U, Priya Pal", 18, 34);
+b.fillText("A/c 1298 0011 2200 4488 (IIFL)", 18, 64);
+b.font = "20px monospace"; b.fillStyle = "#dc2626";
+b.fillText("+91 98765 43210", 18, 104);
+b.font = "bold 13px monospace"; b.fillStyle = "#164e63";
+b.fillText("3452 1987 6543 (UID)", 18, 140);
+b.font = "22px monospace"; b.fillStyle = "#000";
+b.fillText("4111 1111 1111 1111", 18, 190);
+const c = document.getElementById("cheque").getContext("2d");
+c.fillStyle = "#fdfbf7"; c.fillRect(0, 0, 420, 200);
+c.strokeStyle = "#2563eb"; c.strokeRect(6, 6, 408, 188);
+c.font = "26px monospace"; c.fillStyle = "#1e293b";
+c.fillText("Pay to Priya Pal", 24, 70);
+c.font = "24px monospace";
+c.fillText("Rs 12,000 | 3452 1987 6543", 24, 110);
+c.font = "16px monospace"; c.fillStyle = "#4b5563";
+c.fillText("ICICI****0044  prizeya@noreply", 24, 150);
+</script>
+</body></html>
