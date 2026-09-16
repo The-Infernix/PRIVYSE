@@ -61,6 +61,8 @@ export interface SanitizedPayload extends ServerActRequest {
   redactions: RedactionLogEntry[];
   /** Per-stage vision timings/counters when on-device models ran. */
   visionStats?: Record<string, unknown>;
+  /** MIME type of the sanitized screenshot, e.g. "image/webp". */
+  imageMime: string;
 }
 
 function tokenFor(type: string, value: string): string {
@@ -484,6 +486,8 @@ export async function sanitizeForUpload(
   //    The image is downscaled to at most MAX_IMG_W so vision-token cost and
   //    upload size stay low (Qwen-VL tokens scale with image area).
   let sanitizedDataUrl = screenshotDataUrl;
+  // Fall through with the source format when no canvas re-encode happens.
+  let imageMime: string = screenshotDataUrl.match(/^data:([\w.+-]+\/[\w.+-]+);/)?.[1] || "image/jpeg";
   if (redactions.length > 0 || sanitizedDom.length > 0) {
     try {
       const res = await fetch(screenshotDataUrl);
@@ -523,8 +527,12 @@ export async function sanitizeForUpload(
           drawSoMOverlay(ctx, scaledDom, canvas.width, canvas.height);
         }
 
-        const outBlob = await canvas.convertToBlob({ type: "image/jpeg", quality: 0.6 });
+        // WebP at 0.85: ~20% leaner than the JPEG q0.6 pipeline it replaced
+        // while keeping thin text strokes legible (q0.7 measurably blurs the
+        // contact prose the read/report tasks must extract from pixels).
+        const outBlob = await canvas.convertToBlob({ type: "image/webp", quality: 0.85 });
         sanitizedDataUrl = await blobToDataUrl(outBlob);
+        imageMime = outBlob.type || "image/webp";
       }
       bmp.close();
     } catch (err) {
@@ -536,10 +544,11 @@ export async function sanitizeForUpload(
     task,
     history,
     screenshot_b64: sanitizedDataUrl.replace(/^data:image\/\w+;base64,/, ""),
+    imageMime,
     dom: sanitizedDom,
     // Compact on-device semantic map → the server's redaction-aware prompt.
     screenPerception: vision?.perception,
   };
 
-  return { ...body, redactions, visionStats: vision?.stats };
+  return { ...body, imageMime, redactions, visionStats: vision?.stats };
 }

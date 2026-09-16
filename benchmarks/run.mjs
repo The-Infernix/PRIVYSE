@@ -9,6 +9,14 @@ const ROOT = __dirname;
 const CHROME =
   "C:/Program Files/Google/Chrome/Application/chrome.exe";
 
+/** Percentile helper for latency reporting (p50/p95). */
+function pct(vals, p) {
+  if (!vals.length) return 0;
+  const s = [...vals].sort((a, b) => a - b);
+  const idx = Math.min(s.length - 1, Math.floor(p * s.length));
+  return +s[idx].toFixed(1);
+}
+
 const BASE_URLS = ["http://127.0.0.1:8000/test-site", "file:///C:/SIH/26171/test-site"];
 const PAGES = [
   "index.html",
@@ -223,7 +231,7 @@ async function runPage(page, base, bundleJs) {
       t0 = performance.now();
       const imageGate = await __sih.scanSanitizedImage(payload.screenshot_b64.startsWith("data:")
         ? payload.screenshot_b64
-        : `data:image/jpeg;base64,${payload.screenshot_b64}`);
+        : `data:${payload.imageMime || "image/jpeg"};base64,${payload.screenshot_b64}`);
       t.imageGate = performance.now() - t0;
 
       t.total = t.serialize + t.sanitize;
@@ -422,6 +430,27 @@ try {
   const n = results.length;
   for (const k of Object.keys(latencies)) latencies[k] = +(latencies[k] / n).toFixed(1);
 
+  // p50/p95 per phase across the scored pages — single steps are independent
+  // (each page is a fresh URL, so the perception cache never serves here —
+  // this measures the COLD/first-look cost per page).
+  const phaseVals = {
+    capture: results.map((r) => r.captureMs),
+    serialize: results.map((r) => r.timings.serialize),
+    vision: results.map((r) => r.timings.vision || 0),
+    perception: results.map((r) => r.perception?.ms ?? 0),
+    sanitize: results.map((r) => r.timings.sanitize),
+    imageGate: results.map((r) => r.timings.imageGate || 0),
+    total: results.map(
+      (r) => r.captureMs + r.timings.serialize + (r.timings.vision || 0) + r.timings.sanitize,
+    ),
+  };
+  const latencyWaterfallMsPct = Object.fromEntries(
+    Object.entries(phaseVals).map(([k, v]) => [
+      k,
+      { mean: latencies[k], p50: pct(v, 0.5), p95: pct(v, 0.95), min: pct(v, 0), max: pct(v, 1) },
+    ]),
+  );
+
   const visionAgg = results.reduce(
     (a, r) => {
       const s = r.visionStats || {};
@@ -492,6 +521,7 @@ try {
       perception: perceptionAgg,
     },
     latencyWaterfallMsAvg: latencies,
+    latencyWaterfallMsPct: latencyWaterfallMsPct,
   };
 
   mkdirSync(join(ROOT, "results"), { recursive: true });
@@ -502,6 +532,9 @@ try {
   console.log(`overview: precisionPx=${px.__overall__.precisionPx} recallPx=${px.__overall__.recallPx} f1Px=${px.__overall__.f1Px}`);
   console.log(`zero-leak pass=${report.zeroLeak.pass} hits=${leakHits.length} phase2-exposures=${phase2Exposures.length}`);
   console.log(`latency avg (ms): capture=${latencies.capture} serialize=${latencies.serialize} vision=${latencies.vision} perception=${latencies.perception} sanitize=${latencies.sanitize} imageGate=${latencies.imageGate}`);
+  console.log(`latency p50/p95 (ms): ` +
+    ["capture", "vision", "perception", "sanitize", "imageGate", "total"].map((k) =>
+      `${k}=${latencyWaterfallMsPct[k].p50}/${latencyWaterfallMsPct[k].p95}`).join(" "));
   console.log(`vision: modelsMB=${visionAgg.modelsMB} faces=${visionAgg.facesFound} ocrRegions=${visionAgg.ocrRegions} ocrHits=${visionAgg.ocrHits} faceMs=${visionAgg.faceMs} ocrMs=${visionAgg.ocrMs} skipped=${report.vision.skipped.join(",") || "none"}`);
   console.log(`perception: pages=${perceptionAgg.pagesEnabled} avgMs=${perceptionAgg.ms} tiles=> photo=${perceptionAgg.photo} ui=${perceptionAgg.ui} document=${perceptionAgg.document} data=${perceptionAgg.data} blank=${perceptionAgg.blank} uncertain=${perceptionAgg.uncertain} escalates=${perceptionAgg.escalate} ocrPriority=${perceptionAgg.ocrPriority} (MobileViT-Small q8, fully on-device)`);
 } finally {

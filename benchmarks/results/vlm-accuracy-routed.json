@@ -1,43 +1,111 @@
 {
-  "generated_at": "2026-09-05T20:16:33.491Z",
+  "generated_at": "2026-09-14T19:52:47.652Z",
   "server": "http://127.0.0.1:8000",
   "model": "qwen2.5vl:3b",
   "routed": true,
+  "route_perception": false,
+  "with_vision": true,
   "model_small": "qwen2.5vl:3b",
   "model_big": "qwen2.5vl:7b",
   "steps_budget": 12,
   "task_success": {
-    "passed": 3,
+    "passed": 2,
     "total": 3,
-    "rate": 1
+    "rate": 0.67
   },
   "agent_steps": {
-    "mean": 1,
-    "max": 1,
+    "mean": 5,
+    "max": 12,
     "min": 1
   },
   "latency_waterfall_ms": {
     "capture": {
-      "mean": 116.2
+      "mean": 99.2,
+      "p50": 73.3,
+      "p95": 258.2,
+      "min": 31.8,
+      "max": 258.2
     },
     "serialize": {
-      "mean": 1.1
+      "mean": 1.2,
+      "p50": 0.7,
+      "p95": 3.6,
+      "min": 0.2,
+      "max": 3.6
     },
     "sanitize": {
-      "mean": 104
+      "mean": 86.7,
+      "p50": 85.7,
+      "p95": 244.7,
+      "min": 1.4,
+      "max": 244.7
+    },
+    "vision": {
+      "mean": 742.5,
+      "p50": 33.6,
+      "p95": 1994.2,
+      "min": 5.4,
+      "max": 1994.2
+    },
+    "perception": {
+      "mean": 646.2,
+      "p50": 0,
+      "p95": 1704,
+      "min": 0,
+      "max": 1704
     },
     "upload": {
-      "mean": 12713.8
+      "mean": 12953.5,
+      "p50": 14211.1,
+      "p95": 16757,
+      "min": 5580,
+      "max": 16757
     },
     "vlm": {
-      "mean": 12713.8
+      "mean": 12953.5,
+      "p50": 14211.1,
+      "p95": 16757,
+      "min": 5580,
+      "max": 16757
     },
     "execute": {
-      "mean": 807.7
+      "mean": 241.6,
+      "p50": 1.1,
+      "p95": 1297.7,
+      "min": 0.7,
+      "max": 1297.7
     },
     "rethink": {
-      "mean": 0
+      "mean": 6583.5,
+      "p50": 0,
+      "p95": 25777.4,
+      "min": 0,
+      "max": 25777.4
     }
+  },
+  "first_vs_subsequent_ms": {
+    "per_step": {
+      "first": 11414.9,
+      "subsequent": 23031.5
+    },
+    "perception_ms": {
+      "first": 1638,
+      "subsequent": 0
+    },
+    "vision_ms": {
+      "first": 1642.1,
+      "subsequent": 33.5
+    }
+  },
+  "task_e2e_ms": {
+    "mean": 103541,
+    "p50": 17531,
+    "p95": 283843,
+    "per_run": [
+      9249,
+      17531,
+      283843
+    ]
   },
   "runs": [
     {
@@ -47,23 +115,37 @@
       "expected": "name=arav sharma, email=alice@example.com, phone contains 98765, pan=ABCDE1234F, aadhaar contains 6789, then clicked continue",
       "modelUsed": "qwen2.5vl:3b",
       "steps": 1,
+      "e2eMs": 9249,
       "avgLatencyMs": {
-        "capture": 109.3,
-        "serialize": 0.9,
-        "sanitize": 97.4,
-        "upload": 7997.8,
-        "vlm": 7997.8,
-        "execute": 1233,
+        "capture": 136.9,
+        "serialize": 2.3,
+        "sanitize": 121.9,
+        "vision": 1642.1,
+        "perception": 1638,
+        "upload": 6048.1,
+        "vlm": 6048.1,
+        "execute": 1297.7,
         "rethink": 0
       },
       "trace": [
         {
           "cmd": "click #9",
-          "thought": "The form is filled with the required information, so the next step is to click the 'Continue to payment' button to proceed.",
+          "thought": "Click on the 'Continue to payment' button",
           "actionType": "click",
           "done": false,
           "blocked": false,
           "model": "qwen2.5vl:3b",
+          "t": {
+            "capture": 136.8680000000022,
+            "serialize": 2.300000000745058,
+            "sanitize": 121.89999999850988,
+            "vision": 1642.1344000000026,
+            "perception": 1638,
+            "perceptionCached": false,
+            "upload": 6048.117600000001,
+            "vlm": 6048.117600000001,
+            "execute": 1297.7000000011176
+          },
           "error": null
         }
       ]
@@ -74,52 +156,325 @@
       "successMessage": "reached transfer details step",
       "expected": "reaches the transfer details step (beneficiary/account/IFSC page)",
       "modelUsed": "qwen2.5vl:3b",
-      "steps": 1,
+      "steps": 2,
+      "e2eMs": 17531,
       "avgLatencyMs": {
-        "capture": 135.6,
+        "capture": 147,
         "serialize": 0.6,
-        "sanitize": 54.2,
-        "upload": 7518.4,
-        "vlm": 7518.4,
-        "execute": 1189.2,
+        "sanitize": 164,
+        "vision": 1718.4,
+        "perception": 1637,
+        "upload": 5587.4,
+        "vlm": 5587.4,
+        "execute": 1148.1,
         "rethink": 0
       },
       "trace": [
         {
+          "cmd": "type #3 \"hunter2\"",
+          "thought": "Enter password in field",
+          "actionType": "type",
+          "done": false,
+          "blocked": false,
+          "model": "qwen2.5vl:3b",
+          "t": {
+            "capture": 35.88489999999729,
+            "serialize": 0.599999999627471,
+            "sanitize": 120.69999999925494,
+            "vision": 1574.8803999999982,
+            "perception": 1570,
+            "perceptionCached": false,
+            "upload": 5579.976200000001,
+            "vlm": 5579.976200000001,
+            "execute": 1085.7000000011176
+          },
+          "error": null
+        },
+        {
           "cmd": "click #5",
-          "thought": "The login credentials are already entered, so the next step is to click the 'Login' button to proceed.",
+          "thought": "Click the 'Login' button to proceed.",
           "actionType": "click",
           "done": false,
           "blocked": false,
           "model": "qwen2.5vl:3b",
+          "t": {
+            "capture": 258.1869999999981,
+            "serialize": 0.6999999992549419,
+            "sanitize": 207.40000000037253,
+            "vision": 1862.0038000000059,
+            "perception": 1704,
+            "perceptionCached": false,
+            "upload": 5594.7716,
+            "vlm": 5594.7716,
+            "execute": 1210.5
+          },
           "error": null
         }
       ]
     },
     {
       "id": "pii-in-the-wild",
-      "success": true,
-      "successMessage": "reported public contact info and redacted IDs (hits=2)",
+      "success": false,
+      "successMessage": "",
       "expected": "email support@invoices.example, phone +91 99887 76655, pan ZZZPM1234Q, aadhaar 3456 7890 1234",
       "modelUsed": "qwen2.5vl:7b",
-      "steps": 1,
+      "steps": 12,
+      "e2eMs": 283843,
       "avgLatencyMs": {
-        "capture": 103.6,
-        "serialize": 1.8,
-        "sanitize": 160.4,
-        "upload": 22625.3,
-        "vlm": 22625.3,
-        "execute": 0.9,
-        "rethink": 0
+        "capture": 88.1,
+        "serialize": 1.1,
+        "sanitize": 70.9,
+        "vision": 504.8,
+        "perception": 398.4,
+        "upload": 14756.7,
+        "vlm": 14756.7,
+        "execute": 2.6,
+        "rethink": 8229.3
       },
       "trace": [
         {
-          "cmd": "extract \"support@invoices.example or call +91 99887 76655\"",
-          "thought": "The contact email and phone number are in the 'Contact note' section, while the PAN and Aadhaar numbers are in the 'KYC notice' section.",
-          "actionType": "extract",
+          "cmd": "scroll",
+          "thought": "scroll down to find contact details",
+          "actionType": "scroll",
           "done": false,
           "blocked": false,
           "model": "qwen2.5vl:7b",
+          "t": {
+            "capture": 31.81149999999616,
+            "serialize": 3.599999999627471,
+            "sanitize": 100.30000000074506,
+            "vision": 1923.1257000000041,
+            "perception": 1697,
+            "perceptionCached": false,
+            "upload": 14533.078500000003,
+            "vlm": 14533.078500000003,
+            "execute": 6.100000001490116
+          },
+          "error": null
+        },
+        {
+          "cmd": "scroll",
+          "thought": "scroll down to find contact details",
+          "actionType": "scroll",
+          "done": false,
+          "blocked": false,
+          "model": "qwen2.5vl:7b",
+          "t": {
+            "capture": 138.97090000000026,
+            "serialize": 0.40000000037252903,
+            "sanitize": 171.69999999925494,
+            "vision": 1944.155899999998,
+            "perception": 1503,
+            "perceptionCached": false,
+            "upload": 14020.103999999992,
+            "vlm": 14020.103999999992,
+            "execute": 1.1000000014901161
+          },
+          "error": null
+        },
+        {
+          "cmd": "navigate https://example.com",
+          "thought": "Navigate to the site's search/home page to find the contact details.",
+          "actionType": "navigate",
+          "done": false,
+          "blocked": false,
+          "model": "qwen2.5vl:7b",
+          "t": {
+            "capture": 116.44160000000556,
+            "serialize": 0.5,
+            "sanitize": 85.69999999925494,
+            "vision": 1994.2356,
+            "perception": 1581,
+            "perceptionCached": false,
+            "upload": 14218.681500000006,
+            "vlm": 14218.681500000006,
+            "execute": 0.7999999988824129,
+            "rethink": 12145.825700000016
+          },
+          "error": null
+        },
+        {
+          "cmd": "scroll",
+          "thought": "scroll down to find contact details",
+          "actionType": "scroll",
+          "done": false,
+          "blocked": false,
+          "model": "qwen2.5vl:7b",
+          "t": {
+            "capture": 74.8070000000007,
+            "serialize": 0.6000000014901161,
+            "sanitize": 90.59999999962747,
+            "vision": 35.31580000001122,
+            "perception": 0,
+            "perceptionCached": false,
+            "upload": 13875.690100000007,
+            "vlm": 13875.690100000007,
+            "execute": 8
+          },
+          "error": null
+        },
+        {
+          "cmd": "click #0",
+          "thought": "No labelled untried element remains — clicking the first untried element.",
+          "actionType": "click",
+          "done": false,
+          "blocked": true,
+          "model": "qwen2.5vl:7b",
+          "t": {
+            "capture": 65.4951000000001,
+            "serialize": 0.19999999925494194,
+            "sanitize": 68.70000000111759,
+            "vision": 33.57540000000154,
+            "perception": 0,
+            "perceptionCached": false,
+            "upload": 10755.282199999987,
+            "vlm": 10755.282199999987,
+            "execute": 0.7000000011175871,
+            "rethink": 23549.78330000001
+          },
+          "error": null
+        },
+        {
+          "cmd": "scroll",
+          "thought": "scroll down to find contact details",
+          "actionType": "scroll",
+          "done": false,
+          "blocked": false,
+          "model": "qwen2.5vl:7b",
+          "t": {
+            "capture": 184.16310000000522,
+            "serialize": 0.19999999925494194,
+            "sanitize": 244.7000000011176,
+            "vision": 33.50289999999222,
+            "perception": 0,
+            "perceptionCached": false,
+            "upload": 14211.103299999988,
+            "vlm": 14211.103299999988,
+            "execute": 0.7999999988824129
+          },
+          "error": null
+        },
+        {
+          "cmd": "click #1",
+          "thought": "No labelled untried element remains — clicking the first untried element.",
+          "actionType": "click",
+          "done": false,
+          "blocked": true,
+          "model": "qwen2.5vl:7b",
+          "t": {
+            "capture": 64.9426000000094,
+            "serialize": 0.19999999925494194,
+            "sanitize": 69.09999999962747,
+            "vision": 33.376499999983935,
+            "perception": 0,
+            "perceptionCached": false,
+            "upload": 14111.925599999988,
+            "vlm": 14111.925599999988,
+            "execute": 0.900000000372529,
+            "rethink": 22918.778099999996
+          },
+          "error": null
+        },
+        {
+          "cmd": "scroll",
+          "thought": "scroll down to find contact details",
+          "actionType": "scroll",
+          "done": false,
+          "blocked": false,
+          "model": "qwen2.5vl:7b",
+          "t": {
+            "capture": 61.687000000005355,
+            "serialize": 1.699999999254942,
+            "sanitize": 12.5,
+            "vision": 33.40260000000126,
+            "perception": 0,
+            "perceptionCached": false,
+            "upload": 15594.428500000009,
+            "vlm": 15594.428500000009,
+            "execute": 6.5
+          },
+          "error": null
+        },
+        {
+          "cmd": "navigate https://www.iana.org",
+          "thought": "Navigate to the site's home page to search for contact details.",
+          "actionType": "navigate",
+          "done": false,
+          "blocked": false,
+          "model": "qwen2.5vl:7b",
+          "t": {
+            "capture": 72.19370000000345,
+            "serialize": 0.6999999992549419,
+            "sanitize": 1.400000000372529,
+            "vision": 6.931899999995949,
+            "perception": 0,
+            "perceptionCached": false,
+            "upload": 16069.24410000001,
+            "vlm": 16069.24410000001,
+            "execute": 1,
+            "rethink": 14360.184200000018
+          },
+          "error": null
+        },
+        {
+          "cmd": "scroll",
+          "thought": "scroll down to find contact details",
+          "actionType": "scroll",
+          "done": false,
+          "blocked": false,
+          "model": "qwen2.5vl:7b",
+          "t": {
+            "capture": 73.26600000000326,
+            "serialize": 2.900000000372529,
+            "sanitize": 3.199999999254942,
+            "vision": 8.454000000027008,
+            "perception": 0,
+            "perceptionCached": false,
+            "upload": 16326.676600000006,
+            "vlm": 16326.676600000006,
+            "execute": 2.5
+          },
+          "error": null
+        },
+        {
+          "cmd": "click #2",
+          "thought": "No labelled untried element remains — clicking the first untried element.",
+          "actionType": "click",
+          "done": false,
+          "blocked": true,
+          "model": "qwen2.5vl:7b",
+          "t": {
+            "capture": 62.96799999999348,
+            "serialize": 1,
+            "sanitize": 1.5,
+            "vision": 6.486399999994319,
+            "perception": 0,
+            "perceptionCached": false,
+            "upload": 16756.96279999998,
+            "vlm": 16756.96279999998,
+            "execute": 1.1000000014901161,
+            "rethink": 25777.38049999997
+          },
+          "error": null
+        },
+        {
+          "cmd": "scroll",
+          "thought": "scroll to find contact details",
+          "actionType": "scroll",
+          "done": false,
+          "blocked": false,
+          "model": "qwen2.5vl:7b",
+          "t": {
+            "capture": 110.47340000001714,
+            "serialize": 1.799999998882413,
+            "sanitize": 1.800000000745058,
+            "vision": 5.445500000030734,
+            "perception": 0,
+            "perceptionCached": false,
+            "upload": 16606.921700000006,
+            "vlm": 16606.921700000006,
+            "execute": 1.099999999627471
+          },
           "error": null
         }
       ]

@@ -3,6 +3,36 @@
 Kept separate from app.py so prompt iteration never touches serving logic.
 """
 
+import base64
+
+
+def _sniff_image_mime(b64: str) -> str:
+    """Best-effort MIME detection from the encoded bytes.
+
+    The screenshot is base64 WITHOUT a data-URL prefix by the time it reaches
+    the server, so the VLM prompt must rebuild `data:<mime>;base64,...`. Rather
+    than assuming JPEG (wrong today for PNG benchmark captures, and wrong
+    tomorrow for the extension's WebP re-encode), sniff the magic bytes. Falls
+    back to JPEG, which Ollama tolerates for the other formats anyway.
+    """
+    if not b64:
+        return "image/jpeg"
+    try:
+        raw = base64.b64decode(b64[:40] + "===")
+    except Exception:
+        return "image/jpeg"
+    if raw[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return "image/webp"
+    if raw[:4] == b"\x89PNG":
+        return "image/png"
+    return "image/jpeg"
+
+
+def _image_data_url(b64: str) -> str:
+    return f"data:{_sniff_image_mime(b64)};base64,{b64}"
+
 SYSTEM_PROMPT = """You are the decision layer of an autonomous browser agent. You receive ONE screenshot of a web page plus a compact DOM snapshot, and you return ONE JSON object describing the single next action that moves the task TOWARD ITS GOAL. You never write prose, never explain, never use markdown.
 
 OUTPUT FORMAT (return exactly this shape, nothing else):
@@ -138,7 +168,7 @@ def build_user_content(
     # Image
     parts.append({
         "type": "image_url",
-        "image_url": {"url": f"data:image/jpeg;base64,{screenshot_b64}"},
+        "image_url": {"url": _image_data_url(screenshot_b64)},
     })
 
     # Text context
@@ -225,7 +255,7 @@ def build_rethink_content(
 
     parts.append({
         "type": "image_url",
-        "image_url": {"url": f"data:image/jpeg;base64,{screenshot_b64}"},
+        "image_url": {"url": _image_data_url(screenshot_b64)},
     })
 
     lines = [

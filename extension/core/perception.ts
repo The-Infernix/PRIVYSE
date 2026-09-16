@@ -65,6 +65,9 @@ export interface ScreenPerception {
   /** Pipeline ms for the ViT passes. */
   ms: number;
   modelMB: number;
+  /** True when this map was served from the same-page pixel cache, not a fresh
+   * inference (ms is reported as 0 for a cached hit). */
+  cached?: boolean;
 }
 
 export interface PerceiveInput {
@@ -76,6 +79,12 @@ export interface PerceiveInput {
   budgetMs?: number;
   /** Max tiles to classify per pass (latency guardrail). */
   maxTiles?: number;
+  /** Same-page cache key prefix. When set, the pass is keyed on a thumbnail
+   * pixel-hash of the ACTUAL screenshot + url + region list and the cached map
+   * is served when the visible pixels are byte-identical to the last pass.
+   * OPT-IN: no pageUrl -> no caching. The zero-leak gate and fresh faces/OCR
+   * passes in runVision are NEVER affected — they still run every step. */
+  pageUrl?: string;
 }
 
 // -- curated ImageNet-1k index → web-UI semantic tag --------------------------
@@ -426,6 +435,7 @@ export async function perceiveScreen(input: PerceiveInput): Promise<ScreenPercep
     decisions: { escalate: [], ocrPriority: [], captchaLike: [] },
     ms: 0,
     modelMB: 0,
+    cached: false,
   };
 
   if (!modelBase || typeof document === "undefined") return base;
@@ -437,6 +447,20 @@ export async function perceiveScreen(input: PerceiveInput): Promise<ScreenPercep
       im.onerror = () => reject(new Error("image decode failed (perception)"));
       im.src = input.imageDataUrl;
     });
+
+    // Same-page cache lookup (opt-in). Pixel-hash key: relies on decoding the
+    // image only, so a hit skips the label/session load AND every tile run.
+    let cacheKey: string | null = null;
+    if (input.pageUrl) {
+      const hash = thumbHash64(img);
+      if (hash) {
+        cacheKey = `${input.pageUrl}#${img.naturalWidth}x${img.naturalHeight}#${regionsKey(
+          input.imageRegions ?? [],
+        )}#${hash}`;
+        const hit = perceptionCache.get(cacheKey);
+        if (hit) return { ...hit, ms: 0, cached: true };
+      }
+    }
 
     const [labelsMap] = await Promise.all([
       loadLabels(),
@@ -481,7 +505,7 @@ export async function perceiveScreen(input: PerceiveInput): Promise<ScreenPercep
     const summary: Partial<Record<PerceptionTag, number>> = {};
     for (const t of tiles) summary[t.tag] = (summary[t.tag] ?? 0) + 1;
 
-    return {
+    const result = {
       ...base,
       tiles,
       summary,
@@ -489,6 +513,13 @@ export async function perceiveScreen(input: PerceiveInput): Promise<ScreenPercep
       ms: Math.round(performance.now() - t0),
       modelMB: 6.3,
     };
+    if (cacheKey) {
+      perceptionCache.set(cacheKey, result);
+      if (perceptionCache.size > CACHE_MAX) {
+        perceptionCache.delete(perceptionCache.keys().next().value as string);
+      }
+    }
+    return result;
   } catch (e) {
     base.model = `mobilevit-small (q8) — unavailable: ${e instanceof Error ? e.message : String(e)}`;
     return base;
@@ -519,6 +550,52 @@ export async function getPerceptionModelMB(): Promise<number> {
   } catch {
     return 6.3 + 13.3;
   }
+}
+
+// -- same-page perception cache ----------------------------------------------
+//
+// Multi-step tasks re-visit the SAME screen repeatedly (typing into a form,
+// paging a list). Re-running the 1.2-1.6 s ViT on byte-identical pixels is
+// wasted work on the client's battery AND the latency budget. Key is the real
+// thing we classify — the pixels — so a cached map is only served when URL +
+// viewport size + non-DOM region list + a 64px thumbnail hash all match.
+// Conservative by construction: any visible change (scroll, hover, spinner,
+// cursor blink, canvas redraw) is a cache miss. The sanitizer, zero-leak gate,
+// faces and OCR never consult this cache — they always run fresh.
+//
+// OPT-IN: only active when the caller passes pageUrl (extension: the tab URL;
+// the agent loop in vlm-bench passes location.href). Stragglers in this Map
+// are dropped past CACHE_MAX — a stale map can never block a fresh inference.
+
+const perceptionCache = new Map<string, ScreenPerception>();
+const CACHE_MAX = 6;
+
+function thumbHash64(img: HTMLImageElement): string {
+  const S = 64;
+  const c = document.createElement("canvas");
+  c.width = S;
+  c.height = S;
+  const cx = c.getContext("2d", { willReadFrequently: true });
+  if (!cx) return "";
+  cx.imageSmoothingEnabled = true;
+  cx.drawImage(img, 0, 0, S, S);
+  const d = cx.getImageData(0, 0, S, S).data;
+  // FNV-1a over quantized luma samples (every 4th pixel — plenty for change
+  // detection, sub-millisecond to compute).
+  let h = 0x811c9dc5;
+  for (let i = 0; i < d.length; i += 16) {
+    const lum = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
+    h ^= lum;
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
+function regionsKey(regions: [number, number, number, number][]): string {
+  return [...regions]
+    .map((r) => `${r[0]},${r[1]},${r[2]},${r[3]}`)
+    .sort()
+    .join(";");
 }
 
 // re-exported so the offscreen warm path and benchmarks can force ort ready

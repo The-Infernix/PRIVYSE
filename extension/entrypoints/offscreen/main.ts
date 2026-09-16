@@ -48,6 +48,9 @@ interface VisionRunMsg {
   requestId: number;
   imageDataUrl: string;
   imageRegions?: [number, number, number, number][];
+  /** Same-page perception cache key prefix (tab URL). OPT-IN — pixels shared
+   * across tabs never collide because the URL is part of the key. */
+  pageUrl?: string;
 }
 interface ZeroLeakMsg {
   type: "zero-leak-ocr";
@@ -92,6 +95,7 @@ chromeApi!.runtime.onMessage.addListener((raw: unknown, _sender: unknown, sendRe
       const result: VisionResult | null = await runVision({
         imageDataUrl: msg.imageDataUrl,
         imageRegions: msg.imageRegions ?? [],
+        pageUrl: msg.pageUrl,
       });
       return {
         type: "vision-run-result",

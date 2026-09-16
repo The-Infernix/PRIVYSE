@@ -59,6 +59,8 @@ export interface ZeroLeakHit {
 export interface VisionInput {
   imageDataUrl: string;
   imageRegions?: Box[];
+  /** Same-page perception cache key prefix (see perception.ts). OPT-IN. */
+  pageUrl?: string;
 }
 
 // -- model base resolution ---------------------------------------------------
@@ -508,14 +510,16 @@ export async function runVision(input: VisionInput): Promise<VisionResult | null
             imageRegions: input.imageRegions,
             budgetMs: 2500,
             maxTiles: 6,
+            pageUrl: input.pageUrl,
           }),
           7000,
           "perception-timeout",
         );
             out.perception = p;
         if (p.enabled) {
+          const verb = p.cached ? "cached-map" : "ok";
           stats.skipped.push(
-            `perception: ok (${p.ms}ms, ${Object.entries(p.summary)
+            `perception: ${verb} (${p.ms}ms, ${Object.entries(p.summary)
               .map(([t, n]) => `${t}=${n}`)
               .join(" ")})`,
           );

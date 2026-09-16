@@ -18,29 +18,50 @@ const MODEL_SMALL = process.env.BENCH_MODEL_SMALL || "qwen2.5vl:3b";
 const MODEL_BIG = process.env.BENCH_MODEL_BIG || "qwen2.5vl:7b";
 // A "read/report" task needs the big model's reading + aggregation ability.
 const READ_TASKS = /find|report|list|what is|identify|read out|extract|answer|summar/i;
+// BENCH_ROUTE=perception: server-side perception-driven routing — the request
+// omits `model` and the FastAPI layer picks small/big from the on-device
+// MobileViT map (server/routing.py). `model_used` is echoed back in /act.
+const ROUTE_PERCEPTION = process.env.BENCH_ROUTE === "perception";
+// BENCH_VISION=0 disables the in-loop on-device vision pass (faces+OCR+ViT).
+// On by default: this is the real production loop — and because each step
+// passes pageUrl, the perception map is cached on visually-unchanged steps,
+// which the first/subsequent latency split reports.
+const WITH_VISION = process.env.BENCH_VISION !== "0";
 const BASE = process.env.BENCH_BASE || "http://127.0.0.1:8000/test-site";
 const MAX_STEPS = Number(process.env.BENCH_STEPS || 12);
 const VIEWPORT = { width: 1280, height: 800 };
 const ONLY = (process.env.BENCH_ONLY || "").split(",").filter(Boolean);
 
+/** Percentile helper for the step-latency distribution. */
+function pct(vals, p) {
+  const arr = (vals || []).filter((v) => typeof v === "number" && isFinite(v));
+  if (!arr.length) return 0;
+  const s = [...arr].sort((a, b) => a - b);
+  const idx = Math.min(s.length - 1, Math.floor(p * s.length));
+  return +s[idx].toFixed(1);
+}
+
 async function act(task, screenshotB64, dom, history, warnings, useBig) {
   const t0 = performance.now();
-  const model = ROUTED ? (useBig ? MODEL_BIG : MODEL_SMALL) : MODEL;
+  const model = ROUTE_PERCEPTION ? undefined : (ROUTED ? (useBig ? MODEL_BIG : MODEL_SMALL) : MODEL);
+  const body = {
+    task: task.prompt,
+    history,
+    screenshot_b64: screenshotB64,
+    dom,
+    warnings,
+  };
+  // Only pass `model` when not perception-routing (server decides via screenPerception).
+  if (model) body.model = model;
   const res = await fetch(`${SERVER}/act`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      task: task.prompt,
-      history,
-      screenshot_b64: screenshotB64,
-      dom,
-      model,
-      warnings,
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`/act HTTP ${res.status}`);
   const t1 = performance.now();
-  return { body: await res.json(), uploadMs: t1 - t0, model };
+  const j = await res.json();
+  return { body: j, uploadMs: t1 - t0, model: j.model_used || model || MODEL };
 }
 
 async function health() {
@@ -96,6 +117,21 @@ async function runTask(page, bundleJs, task) {
   await page.goto(url, { waitUntil: "domcontentloaded" });
   await ensureInjected(page, bundleJs);
 
+  // Warm the real on-device vision stack (face detector + Tesseract + ViT
+  // session) once per task so a cold model load never inflates the first
+  // measured step. The 1×1 PNG is cheap after the models are resident.
+  if (WITH_VISION) {
+    await page.evaluate(async () => {
+      try {
+        await window.__sih.runVision({
+          pageUrl: location.href,
+          imageDataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQABNjN9GQAAAABJRU5ErkJggg==",
+          imageRegions: [],
+        });
+      } catch { /* warm is best-effort */ }
+    }).catch(() => {});
+  }
+
   const history = [];
   const warnings = [];
   const steps = [];
@@ -131,6 +167,36 @@ async function runTask(page, bundleJs, task) {
     const dom = inpage.dom;
     t.serialize = inpage.tSerialize;
     t.sanitize = inpage.tSanitize;
+
+    // Real production vision pass (faces + region OCR + ViT perception) with
+    // the SAME pageUrl semantics as the extension (background.ts passes
+    // tab.url). Perception is pixel-hash cached: a visually-unchanged step
+    // after the first is served from the map, which the first/subsequent
+    // latency split makes visible.
+    let tVision = 0;
+    let percMs = 0;
+    let percCached = false;
+    if (WITH_VISION) {
+      const v0 = performance.now();
+      const vr = await page.evaluate(async ({ dataUrl }) => {
+        const { __sih } = window;
+        try {
+          return await __sih.runVision({
+            pageUrl: window.location.href,
+            imageDataUrl: dataUrl,
+            imageRegions: __sih.collectImageRegions(),
+          });
+        } catch {
+          return null;
+        }
+      }, { dataUrl: `data:image/png;base64,${screenshotB64}` });
+      tVision = performance.now() - v0;
+      percMs = vr?.perception?.ms ?? 0;
+      percCached = vr?.perception?.cached === true;
+    }
+    t.vision = tVision;
+    t.perception = percMs;
+    t.perceptionCached = percCached;
 
     let actRes;
     const useBig = ROUTED && READ_TASKS.test(task.prompt);
@@ -318,15 +384,23 @@ try {
         a.capture += s.t.capture || 0;
         a.serialize += s.t.serialize || 0;
         a.sanitize += s.t.sanitize || 0;
+        a.vision += s.t.vision || 0;
+        a.perception += s.t.perception || 0;
         a.upload += s.t.upload || 0;
         a.vlm += s.t.vlm || 0;
         a.execute += s.t.execute || 0;
         a.rethink += s.t.rethink || 0;
         return a;
       },
-      { capture: 0, serialize: 0, sanitize: 0, upload: 0, vlm: 0, execute: 0, rethink: 0 },
+      { capture: 0, serialize: 0, sanitize: 0, vision: 0, perception: 0, upload: 0, vlm: 0, execute: 0, rethink: 0 },
     );
     for (const k of Object.keys(latency)) latency[k] = +(latency[k] / (stepCount || 1)).toFixed(1);
+    const e2eMs = (run.steps || []).reduce(
+      (a, s) =>
+        a + (s.t.capture || 0) + (s.t.serialize || 0) + (s.t.sanitize || 0) +
+        (s.t.vision || 0) + (s.t.upload || 0) + (s.t.execute || 0) + (s.t.rethink || 0),
+      0,
+    );
     runs.push({
       id: task.id,
       success: ok,
@@ -334,6 +408,7 @@ try {
       expected: task.expected,
       modelUsed: run.steps[0]?.model || MODEL,
       steps: stepCount,
+      e2eMs: Math.round(e2eMs),
       avgLatencyMs: latency,
       trace: run.steps.map((s) => ({
         cmd: s.cmd,
@@ -342,6 +417,7 @@ try {
         done: s.done,
         blocked: s.blocked,
         model: s.model || null,
+        t: s.t || {},
         error: s.error || null,
       })),
     });
@@ -352,16 +428,51 @@ try {
   const n = runs.length;
   const successCount = runs.filter((r) => r.success).length;
   const avgSteps = +(runs.reduce((a, r) => a + r.steps, 0) / (n || 1)).toFixed(1);
-  const waterfall = {};
-  for (const k of ["capture", "serialize", "sanitize", "upload", "vlm", "execute", "rethink"]) {
-    const vals = runs.flatMap((r) => [r.avgLatencyMs[k] || 0]);
-    waterfall[k] = { mean: +(vals.reduce((a, b) => a + b, 0) / (vals.length || 1)).toFixed(1) };
+
+  // ── phase-level stats across every step ─────────────────────────────────────
+  const allSteps = runs.flatMap((r) => r.trace || []);
+  const firstSteps = [];
+  const subSteps = [];
+  for (const r of runs) {
+    const s = r.trace || [];
+    if (s.length > 0) firstSteps.push(s[0]);
+    for (let i = 1; i < s.length; i++) subSteps.push(s[i]);
   }
+  const PHASES = ["capture", "serialize", "sanitize", "vision", "perception", "upload", "vlm", "execute", "rethink"];
+  const phaseArrays = Object.fromEntries(PHASES.map((k) => [k, allSteps.map((s) => s.t?.[k] || 0)]));
+  const waterfall = Object.fromEntries(
+    PHASES.map((k) => {
+      const vals = phaseArrays[k];
+      return [k, {
+        mean: +(vals.reduce((a, b) => a + b, 0) / (vals.length || 1)).toFixed(1),
+        p50: pct(vals, 0.5),
+        p95: pct(vals, 0.95),
+        min: pct(vals, 0),
+        max: pct(vals, 1),
+      }];
+    }),
+  );
+  const stepTotal = (s) => (s?.t?.capture || 0) + (s?.t?.serialize || 0) + (s?.t?.sanitize || 0) +
+    (s?.t?.vision || 0) + (s?.t?.upload || 0) + (s?.t?.execute || 0) + (s?.t?.rethink || 0);
+  const firstMean = firstSteps.length
+    ? +(firstSteps.reduce((a, s) => a + stepTotal(s), 0) / firstSteps.length).toFixed(1)
+    : 0;
+  const subMean = subSteps.length
+    ? +(subSteps.reduce((a, s) => a + stepTotal(s), 0) / subSteps.length).toFixed(1)
+    : 0;
+  const e2eArr = runs.map((r) => r.e2eMs || 0);
+  const percFirst = firstSteps.map((s) => s.t?.perception || 0);
+  const percSub = subSteps.map((s) => s.t?.perception || 0);
+  const visionFirst = firstSteps.map((s) => s.t?.vision || 0);
+  const visionSub = subSteps.map((s) => s.t?.vision || 0);
+
   const report = {
     generated_at: new Date().toISOString(),
     server: SERVER,
     model: MODEL,
     routed: ROUTED,
+    route_perception: ROUTE_PERCEPTION,
+    with_vision: WITH_VISION,
     model_small: ROUTED ? MODEL_SMALL : null,
     model_big: ROUTED ? MODEL_BIG : null,
     steps_budget: MAX_STEPS,
@@ -370,16 +481,34 @@ try {
       total: n,
       rate: +(successCount / (n || 1)).toFixed(2),
     },
-    agent_steps: { mean: avgSteps, max: Math.max(...runs.map((r) => r.steps)), min: Math.min(...runs.map((r) => r.steps)) },
+    agent_steps: { mean: avgSteps, max: Math.max(...runs.map((r) => (r.trace?.length || 1))), min: Math.min(...runs.map((r) => (r.trace?.length || 1))) },
     latency_waterfall_ms: waterfall,
+    // First step of each task vs the rest — next steps reuse the perception map
+    // on visually-unchanged screens, so subsequent steps should report a much
+    // smaller perception/vision time (pixel-hash perception cache).
+    first_vs_subsequent_ms: {
+      per_step: { first: firstMean, subsequent: subMean },
+      perception_ms: { first: pct(percFirst, 0.5), subsequent: pct(percSub, 0.5) },
+      vision_ms: { first: pct(visionFirst, 0.5), subsequent: pct(visionSub, 0.5) },
+    },
+    task_e2e_ms: {
+      mean: Math.round(e2eArr.reduce((a, b) => a + b, 0) / (e2eArr.length || 1)),
+      p50: Math.round(pct(e2eArr, 0.5)),
+      p95: Math.round(pct(e2eArr, 0.95)),
+      per_run: e2eArr,
+    },
     runs,
   };
   mkdirSync(join(ROOT, "results"), { recursive: true });
   writeFileSync(join(ROOT, "results", "vlm-accuracy.json"), JSON.stringify(report, null, 2));
   console.log(`\nTASK SUCCESS: ${successCount}/${n} (${(successCount / n * 100).toFixed(0)}%)`);
   console.log(`AVG STEPS/TASK: ${avgSteps}`);
-  console.log("WATERFALL (ms/step):");
-  for (const [k, v] of Object.entries(waterfall)) console.log(`  ${k}: ${v.mean}`);
+  console.log("WATERFALL (ms/step, mean | p50 | p95):");
+  for (const [k, v] of Object.entries(waterfall)) console.log(`  ${k}: ${v.mean} | ${v.p50} | ${v.p95}`);
+  console.log(`FIRST vs SUBSEQUENT step (per-step total): ${firstMean} ms vs ${subMean} ms`);
+  console.log(`  perception ms: first ${pct(percFirst, 0.5)} vs subsequent ${pct(percSub, 0.5)} (cached map)`);
+  console.log(`  vision ms:     first ${pct(visionFirst, 0.5)} vs subsequent ${pct(visionSub, 0.5)}`);
+  console.log(`TASK E2E ms: mean ${report.task_e2e_ms.mean} | p50 ${report.task_e2e_ms.p50} | p95 ${report.task_e2e_ms.p95}`);
 } finally {
   await browser.close();
 }

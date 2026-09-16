@@ -114,8 +114,10 @@ export interface ServerActRequest {
   task: string;
   /** Last K steps only (bounded for latency). */
   history: HistoryStep[];
-  /** JPEG base64, ALREADY SANITIZED — sanitizer gate is the only producer. */
+  /** Base64, ALREADY SANITIZED — sanitizer gate is the only producer. */
   screenshot_b64: string;
+  /** MIME type of the sanitized screenshot (e.g. "image/webp", "image/jpeg"). */
+  imageMime?: string;
   /** Set-of-Marks annotated element registry, tokenized. */
   dom: DomElement[];
   /** Optional VLM model override (e.g. "qwen2.5vl:3b"). */
@@ -150,6 +152,8 @@ export interface ServerActResponse {
   subgoal?: string;
   /** True when this step was blocked and a change of approach is needed. */
   blocked?: boolean;
+  /** The model that actually answered (perception-driven routing echoes it). */
+  model_used?: string;
 }
 
 // ---------------------------------------------------------------------------

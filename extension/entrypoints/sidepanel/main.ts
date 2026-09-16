@@ -795,7 +795,7 @@ shotQualityEl.addEventListener("change", () => {
 });
 debugEl.addEventListener("change", () => {
   browser.storage.local.set({ [STORAGE_DEBUG]: debugEl.checked }).catch(() => {});
-  applyTechMode(!debugEl.checked);
+  applyTechMode(debugEl.checked);
 });
 browser.storage.local.get([STORAGE_MAX_STEPS, STORAGE_SHOT_QUALITY, STORAGE_DEBUG]).then((r) => {
   if (typeof r[STORAGE_MAX_STEPS] === "number") maxStepsEl.value = String(r[STORAGE_MAX_STEPS]);
@@ -807,7 +807,7 @@ browser.storage.local.get([STORAGE_MAX_STEPS, STORAGE_SHOT_QUALITY, STORAGE_DEBU
   }
   const wide = (debugEl.checked = r[STORAGE_DEBUG] === true);
   if (localStorage.getItem(LS_SHOW_TECH) === "1") applyTechMode(true);
-  else applyTechMode(!wide);
+  else applyTechMode(wide);
 }).catch(() => {});
 
 // Task is shared with the page spotlight (chrome.storage.local).

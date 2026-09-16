@@ -1,43 +1,109 @@
 {
-  "generated_at": "2026-09-07T20:11:27.489Z",
+  "generated_at": "2026-09-15T19:05:37.641Z",
   "server": "http://127.0.0.1:8000",
   "model": "qwen2.5vl:3b",
   "routed": false,
+  "route_perception": false,
+  "with_vision": true,
   "model_small": null,
   "model_big": null,
   "steps_budget": 12,
   "task_success": {
-    "passed": 3,
-    "total": 3,
+    "passed": 1,
+    "total": 1,
     "rate": 1
   },
   "agent_steps": {
-    "mean": 1.3,
-    "max": 2,
+    "mean": 1,
+    "max": 1,
     "min": 1
   },
   "latency_waterfall_ms": {
     "capture": {
-      "mean": 110.4
+      "mean": 58.3,
+      "p50": 58.3,
+      "p95": 58.3,
+      "min": 58.3,
+      "max": 58.3
     },
     "serialize": {
-      "mean": 2.9
+      "mean": 1.8,
+      "p50": 1.8,
+      "p95": 1.8,
+      "min": 1.8,
+      "max": 1.8
     },
     "sanitize": {
-      "mean": 119.3
+      "mean": 115.6,
+      "p50": 115.6,
+      "p95": 115.6,
+      "min": 115.6,
+      "max": 115.6
+    },
+    "vision": {
+      "mean": 1729.1,
+      "p50": 1729.1,
+      "p95": 1729.1,
+      "min": 1729.1,
+      "max": 1729.1
+    },
+    "perception": {
+      "mean": 1721,
+      "p50": 1721,
+      "p95": 1721,
+      "min": 1721,
+      "max": 1721
     },
     "upload": {
-      "mean": 6899.1
+      "mean": 6622.4,
+      "p50": 6622.4,
+      "p95": 6622.4,
+      "min": 6622.4,
+      "max": 6622.4
     },
     "vlm": {
-      "mean": 6899.1
+      "mean": 6622.4,
+      "p50": 6622.4,
+      "p95": 6622.4,
+      "min": 6622.4,
+      "max": 6622.4
     },
     "execute": {
-      "mean": 789.2
+      "mean": 1272,
+      "p50": 1272,
+      "p95": 1272,
+      "min": 1272,
+      "max": 1272
     },
     "rethink": {
-      "mean": 0
+      "mean": 0,
+      "p50": 0,
+      "p95": 0,
+      "min": 0,
+      "max": 0
     }
+  },
+  "first_vs_subsequent_ms": {
+    "per_step": {
+      "first": 9799.2,
+      "subsequent": 0
+    },
+    "perception_ms": {
+      "first": 1721,
+      "subsequent": 0
+    },
+    "vision_ms": {
+      "first": 1729.1,
+      "subsequent": 0
+    }
+  },
+  "task_e2e_ms": {
+    "mean": 9799,
+    "p50": 9799,
+    "p95": 9799,
+    "per_run": [
+      9799
+    ]
   },
   "runs": [
     {
@@ -47,13 +113,16 @@
       "expected": "name=arav sharma, email=alice@example.com, phone contains 98765, pan=ABCDE1234F, aadhaar contains 6789, then clicked continue",
       "modelUsed": "qwen2.5vl:3b",
       "steps": 1,
+      "e2eMs": 9799,
       "avgLatencyMs": {
-        "capture": 155.7,
-        "serialize": 3.8,
-        "sanitize": 285.3,
-        "upload": 6753.4,
-        "vlm": 6753.4,
-        "execute": 1243.3,
+        "capture": 58.3,
+        "serialize": 1.8,
+        "sanitize": 115.6,
+        "vision": 1729.1,
+        "perception": 1721,
+        "upload": 6622.4,
+        "vlm": 6622.4,
+        "execute": 1272,
         "rethink": 0
       },
       "trace": [
@@ -64,71 +133,17 @@
           "done": false,
           "blocked": false,
           "model": "qwen2.5vl:3b",
-          "error": null
-        }
-      ]
-    },
-    {
-      "id": "bank-transfer",
-      "success": true,
-      "successMessage": "reached transfer details step",
-      "expected": "reaches the transfer details step (beneficiary/account/IFSC page)",
-      "modelUsed": "qwen2.5vl:3b",
-      "steps": 2,
-      "avgLatencyMs": {
-        "capture": 60.2,
-        "serialize": 0.6,
-        "sanitize": 44.9,
-        "upload": 6321.9,
-        "vlm": 6321.9,
-        "execute": 1123.1,
-        "rethink": 0
-      },
-      "trace": [
-        {
-          "cmd": "type #3 \"hunter2\"",
-          "thought": "Enter password in field",
-          "actionType": "type",
-          "done": false,
-          "blocked": false,
-          "model": "qwen2.5vl:3b",
-          "error": null
-        },
-        {
-          "cmd": "click #5",
-          "thought": "Click the 'Login' button to proceed.",
-          "actionType": "click",
-          "done": false,
-          "blocked": false,
-          "model": "qwen2.5vl:3b",
-          "error": null
-        }
-      ]
-    },
-    {
-      "id": "pii-in-the-wild",
-      "success": true,
-      "successMessage": "reported public contact info and redacted IDs (hits=2)",
-      "expected": "email support@invoices.example, phone +91 99887 76655, pan ZZZPM1234Q, aadhaar 3456 7890 1234",
-      "modelUsed": "qwen2.5vl:3b",
-      "steps": 1,
-      "avgLatencyMs": {
-        "capture": 115.3,
-        "serialize": 4.4,
-        "sanitize": 27.8,
-        "upload": 7622.1,
-        "vlm": 7622.1,
-        "execute": 1.2,
-        "rethink": 0
-      },
-      "trace": [
-        {
-          "cmd": "extract \"support@invoices.example or call +91 99887 76655.\"",
-          "thought": "Extract email and phone number",
-          "actionType": "extract",
-          "done": false,
-          "blocked": false,
-          "model": "qwen2.5vl:3b",
+          "t": {
+            "capture": 58.29369999999835,
+            "serialize": 1.7999999998137355,
+            "sanitize": 115.6000000005588,
+            "vision": 1729.0780999999988,
+            "perception": 1721,
+            "perceptionCached": false,
+            "upload": 6622.447899999999,
+            "vlm": 6622.447899999999,
+            "execute": 1272
+          },
           "error": null
         }
       ]

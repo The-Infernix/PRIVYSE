@@ -578,7 +578,7 @@ export default defineBackground(() => {
     await stage("capturing", `Capturing "${tab.title}"…`);
     await log("info", `${prefix}Capturing screenshot of "${tab.title}"…`);
     const sinceCapture = Date.now() - lastCaptureAt;
-    if (sinceCapture >= 0 && sinceCapture < CAPTURE_MIN_GAP_MS) {
+    if (sinceCapture < CAPTURE_MIN_GAP_MS) {
       await new Promise((r) => setTimeout(r, CAPTURE_MIN_GAP_MS - sinceCapture));
     }
     // Hide the agent cursor first so it never appears in the VLM's screenshot.
@@ -634,7 +634,10 @@ export default defineBackground(() => {
         imageRegions = Array.isArray(res?.imageRegions) ? res.imageRegions : [];
         await log("info", `${prefix}DOM serialized: ${dom.length} interactive elements`);
       } catch (e2) {
-        await log("info", `${prefix}DOM serialize failed: ${e2}`);
+        await log("error", `${prefix}DOM serialize failed: ${e2}`);
+        throw new Error(
+          `DOM serialization failed (${e2}) — cannot proceed without a DOM snapshot (privacy gate requires it).`,
+        );
       }
     }
 
@@ -660,9 +663,9 @@ export default defineBackground(() => {
         await log("info", `${prefix}Running on-device vision (face + OCR)…`);
         const tVision = Date.now();
         const vr = await withTimeout(
-          visionHostRequest<{
-            result: VisionFindings | null;
-          }>({ type: "vision-run", imageDataUrl: dataUrl, imageRegions }),
+visionHostRequest<{
+              result: VisionFindings | null;
+            }>({ type: "vision-run", imageDataUrl: dataUrl, imageRegions, pageUrl: tab?.url }),
           VISION_STEP_TIMEOUT_MS,
           `on-device vision step timed out after ${VISION_STEP_TIMEOUT_MS / 1000}s`,
         );
@@ -732,7 +735,7 @@ export default defineBackground(() => {
         gate = await withTimeout(
           visionHostRequest<{
             gate: { pass: boolean; hits: { type: string; value: string }[]; error?: string };
-          }>({ type: "zero-leak-ocr", imageDataUrl: "data:image/jpeg;base64," + payload.screenshot_b64 }),
+          }>({ type: "zero-leak-ocr", imageDataUrl: `data:${payload.imageMime};base64,` + payload.screenshot_b64 }),
           VISION_STEP_TIMEOUT_MS,
           `zero-leak OCR gate timed out after ${VISION_STEP_TIMEOUT_MS / 1000}s`,
         );
@@ -796,7 +799,7 @@ export default defineBackground(() => {
 
     // Before/after proof — the ORIGINAL capture renders only inside this
     // extension panel (never uploaded); the sanitized one is what the VLM sees.
-    const sanitizedPreview = "data:image/jpeg;base64," + payload.screenshot_b64;
+    const sanitizedPreview = `data:${payload.imageMime};base64,` + payload.screenshot_b64;
     const payloadKb = Math.round(
       (payload.screenshot_b64.length * 3) / 4 / 1024,
     );
@@ -1225,7 +1228,7 @@ export default defineBackground(() => {
             );
           } else {
             // Normal step — nothing to recover from.
-if (step < maxSteps - 1 && !loopAbort) {
+            if (step < maxSteps - 1 && !loopAbort) {
               await log("info", `Waiting 750ms before next step…`);
               await new Promise((r) => setTimeout(r, THROTTLE_MS));
             }

@@ -1,7 +1,8 @@
 import type { AgentAction, VerifiedTarget } from "./protocol";
 import { cursor } from "./virtual-cursor";
 import { forEachElement, indexOfElement } from "./dom-common";
-import { validateNavigationUrl, isFileInput, trySubmitForm } from "./action-guards";
+import { validateNavigationUrl, isFileInput, trySubmitForm, checkRewritePolicy } from "./action-guards";
+import { detectPii } from "./pii-rules";
 
 // Deterministic element findings the executor confirmed this run (e.g. the
 // real <input> it auto-descended into from a non-typeable wrapper). background
@@ -148,6 +149,21 @@ async function typeInto(el: Element, text: string) {
     throw new Error(
       `type failed: ${describeTypeTarget(el)} is not typeable and has no inner input. ` +
         `A 'type' action must target an <input>/<textarea>/<select> element directly.`,
+    );
+  }
+  const currentValue =
+    target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement
+      ? target.value
+      : target instanceof HTMLSelectElement
+        ? target.options[target.selectedIndex]?.text ?? ""
+        : target instanceof HTMLElement && target.isContentEditable
+          ? target.textContent ?? ""
+          : "";
+  const rewrite = checkRewritePolicy(currentValue, text, (v) => detectPii(v).length > 0);
+  if (!rewrite.ok) {
+    throw new Error(
+      `type blocked: ${describeTypeTarget(target)} ${rewrite.reason} ` +
+        `(current="${currentValue.slice(0, 20)}")`,
     );
   }
   const descended = target !== el;

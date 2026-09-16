@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-14T19:53:06.461Z",
+  "generated_at": "2026-09-13T18:40:15.187Z",
   "model_set": [
     "qwen2.5vl:3b",
     "qwen2.5vl:7b"
@@ -22,10 +22,10 @@
         "avg_steps": 1.3
       },
       "routed_small_big": {
-        "passed": 2,
+        "passed": 3,
         "total": 3,
-        "rate": 0.67,
-        "avg_steps": 5,
+        "rate": 1,
+        "avg_steps": 1,
         "description": "3b for interactive steps, 7b for read/report tasks"
       }
     },
@@ -234,67 +234,25 @@
       },
       "vlm_routed_ms": {
         "capture": {
-          "mean": 99.2,
-          "p50": 73.3,
-          "p95": 258.2,
-          "min": 31.8,
-          "max": 258.2
+          "mean": 116.2
         },
         "serialize": {
-          "mean": 1.2,
-          "p50": 0.7,
-          "p95": 3.6,
-          "min": 0.2,
-          "max": 3.6
+          "mean": 1.1
         },
         "sanitize": {
-          "mean": 86.7,
-          "p50": 85.7,
-          "p95": 244.7,
-          "min": 1.4,
-          "max": 244.7
-        },
-        "vision": {
-          "mean": 742.5,
-          "p50": 33.6,
-          "p95": 1994.2,
-          "min": 5.4,
-          "max": 1994.2
-        },
-        "perception": {
-          "mean": 646.2,
-          "p50": 0,
-          "p95": 1704,
-          "min": 0,
-          "max": 1704
+          "mean": 104
         },
         "upload": {
-          "mean": 12953.5,
-          "p50": 14211.1,
-          "p95": 16757,
-          "min": 5580,
-          "max": 16757
+          "mean": 12713.8
         },
         "vlm": {
-          "mean": 12953.5,
-          "p50": 14211.1,
-          "p95": 16757,
-          "min": 5580,
-          "max": 16757
+          "mean": 12713.8
         },
         "execute": {
-          "mean": 241.6,
-          "p50": 1.1,
-          "p95": 1297.7,
-          "min": 0.7,
-          "max": 1297.7
+          "mean": 807.7
         },
         "rethink": {
-          "mean": 6583.5,
-          "p50": 0,
-          "p95": 25777.4,
-          "min": 0,
-          "max": 25777.4
+          "mean": 0
         }
       },
       "per_step_e2e_7b_ms": 21150,
@@ -319,6 +277,6 @@
       "total_assets_mb": 40.76
     },
     "latency_e2e_7b_ms_per_step": 21150,
-    "latency_routed_ms_per_step": 12954
+    "latency_routed_ms_per_step": 12714
   }
 }

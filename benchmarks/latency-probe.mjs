@@ -1,100 +1,206 @@
-// Latency probe: measure how screenshot resolution drives VLM latency + token
-// count for the 7b model. Captures ONE real sanitized screenshot on the test
-// site, resizes it to several widths in-page (canvas JPEG), then calls Ollama
-// directly and records wall time + usage tokens.
+// Latency probe — where does the <5 s/step budget go, and which model is fastest?
 //
-// Usage: node latency-probe.mjs [model] [page] [--task fl*]
-import { chromium } from "./node_modules/playwright-core/index.mjs";
+// Part A: real /act round trip (production server path) for the default model.
+// Part B: identical prompt+image straight to Ollama, per candidate model, using
+//         /api/chat metrics to split prompt prefill vs token generation.
+//
+// Usage: node benchmarks/latency-probe.mjs   (server + Ollama must be up)
+
+import { chromium } from "playwright-core";
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const MODEL = process.argv[2] || "qwen2.5vl:7b";
-const PAGE = process.argv[3] || "flight-booking.html";
-const OLLAMA = "http://127.0.0.1:11434";
-const WIDTHS = [1280, 960, 800, 672, 560, 480, 384];
-const TASK = "Fill the passenger form and continue to payment";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
+const SERVER = "http://127.0.0.1:8000";
+const OLLAMA = "http://127.0.0.1:11434/api/chat";
+const PAGE_URL = `${SERVER}/test-site/flight-booking.html`;
+const TASK = "Fill out the passenger details form: name Aarav Sharma, email alice@example.com, phone +91 98765 43210, PAN ABCDE1234F, Aadhaar 2345 6789 0123. Then click Continue to payment.";
+const SYSTEM = `Browser agent decision layer. Return EXACTLY one JSON object, nothing else:
+{"thought": "<short reason>", "action": <one action>, "done": false, "subgoal": "<short aim>", "blocked": <bool>}
+Actions: {"type":"click","target":5} {"type":"type","target":5,"text":"x"} {"type":"press","key":"enter"} {"type":"scroll","direction":"down","amount":600} {"type":"navigate","url":"https://... "} {"type":"wait","ms":800} {"type":"extract","text":"..."} {"type":"done","answer":"..."}
+TARGET RULE: "target" is a plain integer id from the [N] list. Redaction legend: [EMAIL_N],[PHONE_N],[AADHAAR_N],[PAN_N],[CARD_N],[NAME_N] = redacted data, never ask to reveal. done=true only when the task is complete.`;
 
-const bundle = readFileSync("./dist/inpage.js", "utf8");
+const MODELS = ["qwen2.5vl:3b", "qwen3-vl:2b", "qwen2.5vl:7b"];
+const SYSTEM_FULL = `You are the decision layer of an autonomous browser agent. You receive ONE screenshot of a web page plus a compact DOM snapshot, and you return ONE JSON object describing the single next action that moves the task TOWARD ITS GOAL. You never write prose, never explain, never use markdown.
 
-async function main() {
-  const browser = await chromium.launch({ executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe", headless: true });
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  await page.goto(`http://127.0.0.1:8000/test-site/${PAGE}`);
-  await page.addScriptTag({ content: bundle });
+OUTPUT FORMAT (return exactly this shape, nothing else):
+{"thought": "<short reason>", "action": <one action object>, "done": false, "subgoal": "<short what you are trying to achieve right now>", "blocked": <true/false>}
 
-  const shotPngB64 = (await page.screenshot({ type: "png" })).toString("base64");
-  const payload = await page.evaluate(async (args) => {
-    const [d, taskText] = args;
-    const prose = [];
-    window.__sih.sweepDocumentPii((r) => prose.push(r));
-    const dom = window.__sih.serializeDOM();
-    const pl = await window.__sih.sanitizeForUpload(d, dom, taskText, [], prose);
-    return { dom: pl.dom };
-  }, ["data:image/png;base64," + shotPngB64, TASK]);
+- "subgoal": the immediate sub-goal this step advances (e.g. "open search results"). Use it to keep yourself on track across steps.
+- "blocked": true ONLY when this step could not happen because of an obstacle (login wall, permission dialog, paywall, page error, missing element) AND you need to change approach rather than repeat. Otherwise false.
+- "done": true ONLY when the overall task is fully complete.
 
-  // Produce a JPEG variant at each width via canvas.
-  const variants = await page.evaluate(async (args) => {
-    const [srcB64, widths] = args;
-    const img = new Image();
-    img.src = "data:image/png;base64," + srcB64;
-    await img.decode();
-    const out = {};
-    for (const w of widths) {
-      const h = Math.round((img.naturalHeight / img.naturalWidth) * w);
-      const c = document.createElement("canvas");
-      c.width = w; c.height = h;
-      const ctx = c.getContext("2d");
-      ctx.drawImage(img, 0, 0, w, h);
-      out[w] = c.toDataURL("image/jpeg", 0.8).split(",")[1];
-    }
-    return out;
-  }, [shotPngB64, WIDTHS]);
+LENGTH BUDGET (CRITICAL): "thought" max 8 words, "subgoal" max 5 words. The ENTIRE reply stays under 45 tokens. Never add prose after the JSON.
 
-  // DOM text block (fixed across variants).
-  const domLines = payload.dom.slice(0, 20).map((el) =>
-    `[${el.id}] <${el.tag}> text="${(el.text || "").slice(0, 40)}" label="${(el.label || "")}"`
-  ).join("\n");
+ACTION OBJECTS (use the fields the type needs; omit the rest):
+{"type": "click",    "target": 5}
+{"type": "type",     "target": 5, "text": "zombie reddy 2 trailer"}
+{"type": "press",    "key": "enter"}
+{"type": "scroll",   "direction": "down", "amount": 600}
+{"type": "navigate", "url": "https://example.com"}
+{"type": "wait",     "ms": 800}
+{"type": "extract",  "text": "the error message"}
+{"type": "done",     "answer": "optional final answer"}
 
-  const sys = "Return ONE JSON object: {\"thought\": \"...\", \"action\": {...}, \"done\": false}. target is a plain integer from the [N] list.";
+THE NUMBERED TAGS: the DOM snapshot lists elements like:
+  [7] <input> role=textbox text="Search" label="search"
+The "7" is the element's id and is drawn as a numbered tag "[7]" on the screenshot. ALWAYS use the plain integer (7), never the string "[7]" and never the word "search".
 
-  const results = [];
-  for (const w of WIDTHS) {
-    const jpegB64 = variants[w];
-    const t0 = performance.now();
-    let usage = null, content = "";
-    try {
-      const r = await fetch(`${OLLAMA}/v1/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: MODEL,
-          messages: [
-            { role: "system", content: sys },
-            { role: "user", content: [
-              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${jpegB64}` } },
-              { type: "text", text: `Task: ${TASK}\nDOM:\n${domLines}\nReturn JSON only.` },
-            ] },
-          ],
-          temperature: 0,
-          max_tokens: 128,
-          stream: false,
-        }),
-      });
-      const j = await r.json();
-      usage = j.usage || null;
-      content = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "";
-    } catch (e) {
-      console.error("call failed:", e.message);
-    }
-    const totalMs = performance.now() - t0;
-    const kb = Math.round(jpegB64.length / 1024);
-    results.push({ w, kb, totalMs: Math.round(totalMs), usage, content: content.slice(0, 60) });
-    console.log(
-      `${w}px  jpeg=${kb}KB  total=${Math.round(totalMs)}ms` +
-      (usage ? `  prompt_tok=${usage.prompt_tokens} comp_tok=${usage.completion_tokens}` : "")
-    );
-  }
-  await browser.close();
-  console.log("\ncontent check (first variant):", results[0].content);
+TARGET RULE: "target" is ALWAYS a plain integer copied from the [N] tag. It is NEVER a word, NEVER the task text, NEVER in brackets.
+
+SEARCHING: to search for something, do it in three steps:
+  1. click the search box (its numeric id)
+  2. type into that same numeric id with the phrase in "text"
+  3. press enter
+
+BLOCKER RECOVERY — CRITICAL BEHAVIOUR:
+When a step is blocked, DO NOT repeat the same action. Instead adapt: change subgoal, change the element, change the URL — never fire the identical failing action twice.
+
+Redaction legend: [EMAIL_N], [PHONE_N], [AADHAAR_N], [PAN_N], [CARD_N], [NAME_N], [ADDRESS_N] are placeholders for redacted personal data — reason about their position, never ask the user to reveal them. [SECRET] fields are passwords — never interact past them.
+
+Rules:
+1. Prefer clicking/typing a visible target over scrolling.
+2. done=true only when the task is complete.
+3. If nothing useful is visible, scroll down.
+4. When blocked, produce a DIFFERENT action than the one that just failed.`;
+
+function pms(ns) {
+  return ns == null ? "0" : (ns / 1e6).toFixed(0);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+function pct(vals, p) {
+  const arr = [...vals].sort((a, b) => a - b);
+  return arr[Math.min(arr.length - 1, Math.floor(p * arr.length))];
+}
+function stats(vals) {
+  return `${(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(0)}ms | p50 ${pct(vals, 0.5).toFixed(0)}ms | p95 ${pct(vals, 0.95).toFixed(0)}ms | n=${vals.length}`;
+}
+
+async function act(screenshotB64) {
+  const body = { task: TASK, history: [], screenshot_b64: screenshotB64, dom: [] };
+  const t0 = performance.now();
+  const res = await fetch(`${SERVER}/act`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const dt = performance.now() - t0;
+  const j = await res.json();
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${JSON.stringify(j)}`);
+  return { ms: dt, model: j.model_used, action: j.action?.type ?? "?" };
+}
+
+async function chat(model, imageB64, system, userText = null) {
+  const rawB64 = imageB64.replace(/^data:image\/\w+;base64,/, "");
+  const text = userText ?? `Task: ${TASK}\nDOM elements (0 total):\n(No DOM elements captured)\n\nREMINDER: return ONE JSON object only.`;
+  const messages = [
+    { role: "system", content: system },
+    { role: "user", content: text, images: [rawB64] },
+  ];
+  const res = await fetch(OLLAMA, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ model, messages, stream: false, options: { num_ctx: 4096 }, keep_alive: "5m" }),
+  });
+  if (!res.ok) throw new Error(`${model} HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  return await res.json();
+}
+
+const b = await chromium.launch({ executablePath: CHROME, headless: true });
+try {
+  const page = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  await page.goto(PAGE_URL, { waitUntil: "networkidle" });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.waitForTimeout(500);
+  const shot = await page.screenshot({ type: "png" });
+  const b64 = shot.toString("base64");
+  console.log(`Screenshot: ${(b64.length * 3 / 4 / 1024).toFixed(0)} KB (1280x800 PNG) from ${PAGE_URL}\n`);
+
+  console.log("=== Part A: real /act (production server path, default model) ===");
+  const actTimes = [];
+  for (let i = 0; i < 3; i++) {
+    try {
+      const r = await act(b64);
+      actTimes.push(r.ms);
+      console.log(`  /act #${i + 1}: ${r.ms.toFixed(0)}ms (model_used=${r.model}, action=${r.action})`);
+    } catch (e) {
+      console.log(`  /act #${i + 1}: FAILED ${e.message.slice(0, 120)}`);
+    }
+  }
+  if (actTimes.length) console.log(`  summary: ${stats(actTimes)}\n`);
+
+  console.log("=== Part B: straight-to-Ollama per model (prefill vs generate) ===");
+  for (const model of MODELS) {
+    try {
+      const warm = await chat(model, b64, SYSTEM);
+      if (warm.error) { console.log(`  ${model}: SKIP (${warm.error})`); continue; }
+      console.log(`  ${model}: warm done (prompt_eval=${warm.prompt_eval_count}, eval=${warm.eval_count})`);
+    } catch (e) {
+      // model may not support the message shape — keep going
+    }
+    const runs = [];
+    for (let i = 0; i < 2; i++) {
+      try {
+        const r = await chat(model, b64, SYSTEM);
+        runs.push(r);
+      } catch (e) {
+        console.log(`  ${model}: FAILED ${e.message.slice(0, 100)}`);
+        break;
+      }
+    }
+    if (!runs.length) continue;
+    const prefill = runs.map((r) => (r.prompt_eval_duration ?? 0) / 1e6);
+    const gen = runs.map((r) => (r.eval_duration ?? 0) / 1e6);
+    const wall = runs.map((r) => (r.total_duration - (r.load_duration ?? 0)) / 1e6);
+    console.log(`  ${model}: prompt_tokens=${runs[0].prompt_eval_count} eval_tokens=${runs[0].eval_count}`);
+    console.log(`    prefill  ${stats(prefill)}`);
+    console.log(`    generate ${stats(gen)}`);
+    console.log(`    wall     ${stats(wall)}`);
+  }
+
+  console.log("\n=== Part C: prompt-size impact on qwen2.5vl:3b (full vs compact system) ===");
+  const domText = Array.from({ length: 40 }, (_, i) =>
+    `  [${i}] <input> role=textbox text="Some label text here ${i}" label="field-${i}" value="x"`,
+  ).join("\n");
+  const longUser = `Task: ${TASK}\n\nPrevious steps:\n  1. click #9 -> ok\n  2. type #4 "hi" -> ok\n\nDOM elements (40 total):\n${domText}\n\nREMINDER: return ONE JSON object only. "target" is a plain integer id from the [N] list.`;
+  const warmFull = await chat("qwen2.5vl:3b", b64, SYSTEM_FULL, longUser);
+  console.log(`  warm(full+40dom) prompt_eval=${warmFull.prompt_eval_count}`);
+  const combos = [
+    ["full sys + 40 dom", SYSTEM_FULL, longUser],
+    ["compact sys + 40 dom", SYSTEM, longUser],
+    ["compact sys + bare text", SYSTEM, null],
+  ];
+  for (const [label, sys, utxt] of combos) {
+    const runs = [];
+    for (let i = 0; i < 3; i++) {
+      const r = await chat("qwen2.5vl:3b", b64, sys, utxt);
+      runs.push(r);
+    }
+    const prefill = runs.map((r) => (r.prompt_eval_duration ?? 0) / 1e6);
+    const wall = runs.map((r) => (r.total_duration - (r.load_duration ?? 0)) / 1e6);
+    console.log(`  ${label}: tokens=${runs[0].prompt_eval_count}`);
+    console.log(`    prefill ${stats(prefill)}`);
+    console.log(`    wall    ${stats(wall)}`);
+  }
+
+  console.log("\n=== Part D: qwen3-vl:2b with realistic (full sys + 40 dom) ===");
+  const warmQ = await chat("qwen3-vl:2b", b64, SYSTEM_FULL, longUser);
+  console.log(`  warm prompt_eval=${warmQ.prompt_eval_count}`);
+  const qRuns = [];
+  for (let i = 0; i < 3; i++) {
+    const r = await chat("qwen3-vl:2b", b64, SYSTEM_FULL, longUser);
+    qRuns.push(r);
+  }
+  const qPrefill = qRuns.map((r) => (r.prompt_eval_duration ?? 0) / 1e6);
+  const qGen = qRuns.map((r) => (r.eval_duration ?? 0) / 1e6);
+  const qWall = qRuns.map((r) => (r.total_duration - (r.load_duration ?? 0)) / 1e6);
+  console.log(`  qwen3-vl:2b tokens=${qRuns[0].prompt_eval_count}/${qRuns[0].eval_count}`);
+  console.log(`    prefill  ${stats(qPrefill)}`);
+  console.log(`    generate ${stats(qGen)}`);
+  console.log(`    wall     ${stats(qWall)}`);
+  console.log(`  sample reply: ${qRuns[0].message.content.slice(0, 160)}`);
+} finally {
+  await b.close();
+}

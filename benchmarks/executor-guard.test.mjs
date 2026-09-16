@@ -67,6 +67,43 @@ check("navigate allows https:", navCases.https.ok);
 check("navigate allows relative:", navCases.rel.ok);
 check("navigate rejects malformed:", !navCases.malformed.ok, navCases.malformed.reason);
 
+// ── DO-NOT-MODIFY structural write veto ───────────────────────────────────
+// A forged /act response that rewrites a field whose current value the
+// sanitizer would redact (card / PAN / email) must be refused by the executor:
+// only an EXACT re-assert is allowed; replacement/erasure is a corruption
+// primitive (an attacker-controlled model overwriting the user's golden
+// corner). Plain (non-PII) values stay fully editable.
+const rewriteCases = await page.evaluate(async () => {
+  const mk = (name, type, value) => { const i = document.createElement("input"); i.type = type; i.name = name; i.value = value; document.body.appendChild(i); return i; };
+  const card = mk("card", "text", "4111 1111 1111 1111");
+  const pan = mk("pan", "text", "ABCDE1234F");
+  const email = mk("email", "email", "alice@example.com");
+  const name = mk("name", "text", "Aarav Sharma");
+  const empty = mk("newphone", "tel", "");
+  const idx = (el) => window.__sih.indexOfElement(el);
+  const apply = async (el, text) => {
+    try { await window.__sih.executeAction({ type: "type", target: idx(el), text }); return null; }
+    catch (e) { return String(e?.message ?? e); }
+  };
+  return {
+    cardReplace: await apply(card, "9999 9999 9999 9999"),
+    cardSame: await apply(card, "4111 1111 1111 1111"),
+    cardErase: await apply(card, ""),
+    panReplace: await apply(pan, "ZZZPM1234Q"),
+    emailReplace: await apply(email, "attacker@evil.example"),
+    nameReplace: await apply(name, "Riya Verma"),
+    emptyFill: await apply(empty, "9876500000"),
+    values: { card: card.value, pan: pan.value, email: email.value, name: name.value, empty: empty.value },
+  };
+});
+check("write veto: replace card blocked", typeof rewriteCases.cardReplace === "string" && rewriteCases.cardReplace.includes("type blocked"), rewriteCases.cardReplace);
+check("write veto: exact card re-assert allowed", rewriteCases.cardSame === null && rewriteCases.values.card.includes("4111"), String(rewriteCases.cardSame));
+check("write veto: erasing protected card blocked", typeof rewriteCases.cardErase === "string" && rewriteCases.cardErase.includes("type blocked"), rewriteCases.cardErase);
+check("write veto: replace PAN blocked", String(rewriteCases.panReplace ?? "").includes("type blocked"), rewriteCases.panReplace);
+check("write veto: replace email blocked", String(rewriteCases.emailReplace ?? "").includes("type blocked"), rewriteCases.emailReplace);
+check("write veto: plain name stays editable", rewriteCases.nameReplace === null && rewriteCases.values.name === "Riya Verma", String(rewriteCases.nameReplace));
+check("write veto: empty field fill allowed", rewriteCases.emptyFill === null && rewriteCases.values.empty === "9876500000", String(rewriteCases.emptyFill));
+
 // ── executeAction legacy path (pre-guard) refuses navigate javascript: ─────
 const navErr = await page.evaluate(async () => {
   try {

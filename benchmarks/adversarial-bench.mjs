@@ -86,7 +86,7 @@ for (const p of PAGES) {
     const gate = await __sih.scanSanitizedImage(
       payload.screenshot_b64.startsWith("data:")
         ? payload.screenshot_b64
-        : `data:image/jpeg;base64,${payload.screenshot_b64}`,
+        : `data:${payload.imageMime || "image/jpeg"};base64,${payload.screenshot_b64}`,
     );
     const bodyJson = JSON.stringify(payload);
     const pctx = (vision?.perception ?? null);

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-13T17:29:47.765Z",
+  "generated_at": "2026-09-13T18:33:34.781Z",
   "pages": [
     {
       "page": "flight-booking.html",
@@ -152,7 +152,7 @@
           ]
         }
       ],
-      "bodySizeBytes": 61425,
+      "bodySizeBytes": 61440,
       "faces": [],
       "ocrHits": [],
       "perception": {
@@ -230,17 +230,18 @@
           "ocrPriority": [],
           "captchaLike": []
         },
-        "ms": 1994,
-        "modelMB": 6.3
+        "ms": 2419,
+        "modelMB": 6.3,
+        "cached": false
       },
       "regions": [],
       "timingsMs": {
-        "serialize": 2.599999999627471,
-        "vision": 1996.199999999255,
-        "sanitize": 116.5,
-        "imageGate": 629.3999999985099,
-        "total": 119.09999999962747,
-        "capture": 140
+        "serialize": 2.099999999627471,
+        "vision": 2569.5999999996275,
+        "sanitize": 140,
+        "imageGate": 683.5999999996275,
+        "total": 142.09999999962747,
+        "capture": 228
       }
     },
     {
@@ -327,7 +328,7 @@
           ]
         }
       ],
-      "bodySizeBytes": 53826,
+      "bodySizeBytes": 53828,
       "faces": [],
       "ocrHits": [],
       "perception": {
@@ -405,17 +406,18 @@
           "ocrPriority": [],
           "captchaLike": []
         },
-        "ms": 1603,
-        "modelMB": 6.3
+        "ms": 1829,
+        "modelMB": 6.3,
+        "cached": false
       },
       "regions": [],
       "timingsMs": {
-        "serialize": 1.199999999254942,
-        "vision": 1605,
-        "sanitize": 116.10000000149012,
-        "imageGate": 567.1999999992549,
-        "total": 117.30000000074506,
-        "capture": 111
+        "serialize": 1.800000000745058,
+        "vision": 1832,
+        "sanitize": 89.59999999962747,
+        "imageGate": 607.8000000007451,
+        "total": 91.40000000037253,
+        "capture": 204
       }
     },
     {
@@ -469,7 +471,7 @@
           ]
         }
       ],
-      "bodySizeBytes": 42950,
+      "bodySizeBytes": 42980,
       "faces": [],
       "ocrHits": [],
       "perception": {
@@ -546,17 +548,18 @@
           "ocrPriority": [],
           "captchaLike": []
         },
-        "ms": 1566,
-        "modelMB": 6.3
+        "ms": 1658,
+        "modelMB": 6.3,
+        "cached": false
       },
       "regions": [],
       "timingsMs": {
         "serialize": 1.099999999627471,
-        "vision": 1567.5,
-        "sanitize": 118.5,
-        "imageGate": 523.9000000003725,
-        "total": 119.59999999962747,
-        "capture": 73
+        "vision": 1659,
+        "sanitize": 89.19999999925494,
+        "imageGate": 609.6999999992549,
+        "total": 90.29999999888241,
+        "capture": 173
       }
     },
     {
@@ -644,7 +647,7 @@
           ]
         }
       ],
-      "bodySizeBytes": 51366,
+      "bodySizeBytes": 51381,
       "faces": [],
       "ocrHits": [],
       "perception": {
@@ -721,17 +724,18 @@
           "ocrPriority": [],
           "captchaLike": []
         },
-        "ms": 1477,
-        "modelMB": 6.3
+        "ms": 1627,
+        "modelMB": 6.3,
+        "cached": false
       },
       "regions": [],
       "timingsMs": {
-        "serialize": 1.300000000745058,
-        "vision": 1478.5999999996275,
-        "sanitize": 86.30000000074506,
-        "imageGate": 549.6999999992549,
-        "total": 87.60000000149012,
-        "capture": 118
+        "serialize": 1.900000000372529,
+        "vision": 1628.800000000745,
+        "sanitize": 124.59999999962747,
+        "imageGate": 630.6000000014901,
+        "total": 126.5,
+        "capture": 131
       }
     },
     {
@@ -784,7 +788,7 @@
           ]
         }
       ],
-      "bodySizeBytes": 42556,
+      "bodySizeBytes": 42571,
       "faces": [],
       "ocrHits": [],
       "perception": {
@@ -861,17 +865,18 @@
           "ocrPriority": [],
           "captchaLike": []
         },
-        "ms": 1569,
-        "modelMB": 6.3
+        "ms": 1809,
+        "modelMB": 6.3,
+        "cached": false
       },
       "regions": [],
       "timingsMs": {
-        "serialize": 1.3999999985098839,
-        "vision": 1570.4000000003725,
-        "sanitize": 85.80000000074506,
-        "imageGate": 502.2000000011176,
-        "total": 87.19999999925494,
-        "capture": 97
+        "serialize": 1.800000000745058,
+        "vision": 1889.2999999988824,
+        "sanitize": 112.5,
+        "imageGate": 576.7999999988824,
+        "total": 114.30000000074506,
+        "capture": 158
       }
     },
     {
@@ -1142,7 +1147,7 @@
           ]
         }
       ],
-      "bodySizeBytes": 93553,
+      "bodySizeBytes": 93557,
       "faces": [
         [
           279,
@@ -1372,8 +1377,9 @@
           ],
           "captchaLike": []
         },
-        "ms": 1706,
-        "modelMB": 6.3
+        "ms": 1904,
+        "modelMB": 6.3,
+        "cached": false
       },
       "regions": [
         [
@@ -1408,12 +1414,12 @@
         ]
       ],
       "timingsMs": {
-        "serialize": 2.400000000372529,
-        "vision": 2096.9000000003725,
-        "sanitize": 74.5,
-        "imageGate": 401.59999999962747,
-        "total": 76.90000000037253,
-        "capture": 131
+        "serialize": 3.800000000745058,
+        "vision": 2185.199999999255,
+        "sanitize": 142.09999999962747,
+        "imageGate": 432.19999999925494,
+        "total": 145.90000000037253,
+        "capture": 264
       }
     },
     {
@@ -1523,7 +1529,7 @@
           ]
         }
       ],
-      "bodySizeBytes": 61511,
+      "bodySizeBytes": 61526,
       "faces": [],
       "ocrHits": [],
       "perception": {
@@ -1600,17 +1606,18 @@
           "ocrPriority": [],
           "captchaLike": []
         },
-        "ms": 1590,
-        "modelMB": 6.3
+        "ms": 1699,
+        "modelMB": 6.3,
+        "cached": false
       },
       "regions": [],
       "timingsMs": {
-        "serialize": 1.300000000745058,
-        "vision": 1591.9000000003725,
-        "sanitize": 96.29999999888241,
-        "imageGate": 628.0999999996275,
-        "total": 97.59999999962747,
-        "capture": 72
+        "serialize": 1.200000001117587,
+        "vision": 1701,
+        "sanitize": 67.29999999888241,
+        "imageGate": 654,
+        "total": 68.5,
+        "capture": 177
       }
     }
   ],
@@ -1751,24 +1758,24 @@
     "phase2TaggedGt": 4
   },
   "vision": {
-    "faceMs": 242.4,
-    "ocrMs": 299.2,
+    "faceMs": 861.8,
+    "ocrMs": 311.8,
     "facesFound": 2,
     "ocrRegions": 5,
     "ocrHits": 1,
     "modelsMB": 40.761701583862305,
     "skipped": [
-      "perception: ok (1994ms, blank=4 uncertain=2)",
-      "perception: ok (1603ms, blank=5 photo=1)",
-      "perception: ok (1566ms, blank=6)",
-      "perception: ok (1477ms, blank=6)",
-      "perception: ok (1569ms, blank=6)",
-      "perception: ok (1706ms, photo=2 blank=4)",
-      "perception: ok (1590ms, blank=6)"
+      "perception: ok (2419ms, blank=4 uncertain=2)",
+      "perception: ok (1829ms, blank=5 photo=1)",
+      "perception: ok (1658ms, blank=6)",
+      "perception: ok (1627ms, blank=6)",
+      "perception: ok (1809ms, blank=6)",
+      "perception: ok (1904ms, photo=2 blank=4)",
+      "perception: ok (1699ms, blank=6)"
     ],
     "perception": {
       "pagesEnabled": 7,
-      "ms": 1643.6,
+      "ms": 1849.3,
       "photo": 3,
       "ui": 0,
       "document": 0,
@@ -1780,12 +1787,63 @@
     }
   },
   "latencyWaterfallMsAvg": {
-    "capture": 106,
-    "serialize": 1.6,
-    "vision": 1700.9,
-    "perception": 1643.6,
-    "sanitize": 99.1,
-    "imageGate": 543.2,
-    "total": 1907.7
+    "capture": 190.7,
+    "serialize": 2,
+    "vision": 1923.6,
+    "perception": 1849.3,
+    "sanitize": 109.3,
+    "imageGate": 599.2,
+    "total": 2225.6
+  },
+  "latencyWaterfallMsPct": {
+    "capture": {
+      "mean": 190.7,
+      "p50": 177,
+      "p95": 264,
+      "min": 131,
+      "max": 264
+    },
+    "serialize": {
+      "mean": 2,
+      "p50": 1.8,
+      "p95": 3.8,
+      "min": 1.1,
+      "max": 3.8
+    },
+    "vision": {
+      "mean": 1923.6,
+      "p50": 1832,
+      "p95": 2569.6,
+      "min": 1628.8,
+      "max": 2569.6
+    },
+    "perception": {
+      "mean": 1849.3,
+      "p50": 1809,
+      "p95": 2419,
+      "min": 1627,
+      "max": 2419
+    },
+    "sanitize": {
+      "mean": 109.3,
+      "p50": 112.5,
+      "p95": 142.1,
+      "min": 67.3,
+      "max": 142.1
+    },
+    "imageGate": {
+      "mean": 599.2,
+      "p50": 609.7,
+      "p95": 683.6,
+      "min": 432.2,
+      "max": 683.6
+    },
+    "total": {
+      "mean": 2225.6,
+      "p50": 2127.4,
+      "p95": 2939.7,
+      "min": 1886.3,
+      "max": 2939.7
+    }
   }
 }

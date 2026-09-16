@@ -82,7 +82,6 @@ export function trySubmitForm(form: HTMLFormElement | null): boolean {
   );
   if (!hasContent) return false;
   if (inForm.dataset.sihSubmitted) return false;
-  inForm.dataset.sihSubmitted = "1";
   setTimeout(() => {
     if (!inForm.dataset.sihSubmitted) {
       inForm.dataset.sihSubmitted = "1";
@@ -95,4 +94,32 @@ export function trySubmitForm(form: HTMLFormElement | null): boolean {
 /** Reset guard state (per run). */
 export function resetGuards(): void {
   lastGuardNotice = null;
+}
+
+/**
+ * Deterministic DO-NOT-MODIFY policy for writes into value-bearing elements.
+ * If the element currently holds a sensitive value (one the sanitizer would
+ * redact this very step), the executor may only RE-ASSERT the exact value —
+ * never replace or erase it. This closes the structural gap where a hostile or
+ * prompt-injected /act response could silently overwrite a redacted field
+ * (a "corrupt the payment card / PAN corner" primitive). DOM-free + pure:
+ * `isProtectedText` is supplied by the caller (executor passes detectPii).
+ */
+export function checkRewritePolicy(
+  currentValue: string,
+  typedText: string,
+  isProtectedText: (value: string) => boolean,
+): GuardResult {
+  const norm = (s: string) => String(s ?? "").replace(/\s+/g, " ").trim();
+  if (norm(currentValue) === "") return { ok: true };
+  if (norm(typedText) === norm(currentValue)) return { ok: true };
+  if (isProtectedText(currentValue)) {
+    return {
+      ok: false,
+      reason:
+        "current value is a protected sensitive field (redacted this step) — " +
+        "type the exact current value to re-assert it, or it cannot be replaced/erased",
+    };
+  }
+  return { ok: true };
 }

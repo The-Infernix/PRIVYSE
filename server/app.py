@@ -33,6 +33,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from openai import OpenAI
 from prompts import SYSTEM_PROMPT, build_user_content, build_rethink_content, select_system_prompt
+from routing import router_choose
 import io
 
 try:
@@ -50,6 +51,21 @@ PROTOCOL_VERSION = 1
 # ---------------------------------------------------------------------------
 VLM_MODEL = os.getenv("VLM_MODEL", "qwen2.5vl:3b")
 OLLAMA_BASE = os.getenv("OPENAI_BASE_URL", "http://127.0.0.1:11434/v1")
+# Generation ceiling. The prompt's LENGTH BUDGET asks for <45-token replies,
+# but "extract" actions carry the answer text inline (email+phone+PAN+Aadhaar),
+# which can exceed 64 tokens — truncating mid-JSON breaks parsing and sends the
+# read/report tasks into scroll loops. 128 keeps a comfortable margin while
+# generation still ends at the JSON close (EOS), not at the cap.
+VLM_MAX_TOKENS = int(os.getenv("VLM_MAX_TOKENS", "128"))
+# Context window for VLM KV-prompt caching. Ollama re-prefills the whole prompt
+# every call unless a large enough num_ctx keeps the KV cache around: the
+# system prompt is byte-identical each step, so keeping everything in-window
+# lets the backend reuse the prefill instead of recomputing it on a CPU-bound
+# box. Larger = more cache reuse but more VRAM for the KV cache. 4096 fits the
+# full step prompt (~2.5-2.8k tokens: system + image floor ~1024 + DOM/history)
+# and leaves headroom for the generated reply; the 7B on a 4GB GPU can't afford
+# a much bigger F16 KV cache. Raise (NUM_CTX=8192) on judge-class hardware.
+NUM_CTX = int(os.getenv("NUM_CTX", "4096"))
 
 vlm_client = OpenAI(
     base_url=OLLAMA_BASE,
@@ -145,6 +161,8 @@ class DomElement(BaseModel):
 class HistoryStep(BaseModel):
     action: Action
     result: str
+    subgoal: Optional[str] = None
+    blocked: Optional[bool] = False
 
 
 class VerifiedTarget(BaseModel):
@@ -213,6 +231,9 @@ class ActResponse(BaseModel):
     # the recovery/rethink path instead of the loop running out of steps).
     subgoal: Optional[str] = None
     blocked: Optional[bool] = False
+    # Which model actually answered — set by perception-driven triage when the
+    # client omitted `model` (routing.py). Always echoed for observability.
+    model_used: Optional[str] = None
 
 
 # /rethink is today's version of our "ask what to do next + if it doesn't work,
@@ -256,6 +277,18 @@ if _TEST_SITE_DIR.is_dir():
         name="test-site",
     )
 
+# On-device vision models (onnx/tesseract weights) served to the page/offscreen
+# vision host — mirrors the extension's packaged `public/models` so the
+# benchmark loop and a developer build of the extension can load ORT from the
+# same origin that serves the test site.
+_MODELS_DIR = Path(__file__).resolve().parent.parent / "extension" / "public" / "models"
+if _MODELS_DIR.is_dir():
+    app.mount(
+        "/models",
+        StaticFiles(directory=str(_MODELS_DIR)),
+        name="models",
+    )
+
 
 @app.get("/health")
 def health():
@@ -268,6 +301,8 @@ def health():
         "vlm_model": VLM_MODEL,
         "vlm_endpoint": OLLAMA_BASE,
         "prompt_ready": bool(SYSTEM_PROMPT),
+        "num_ctx": NUM_CTX,
+        "max_tokens": VLM_MAX_TOKENS,
     }
 
 
@@ -301,10 +336,13 @@ def call_vlm(user_content: list[dict], model: str | None = None, system_prompt: 
         model=model,
         messages=messages,
         temperature=0,
-        max_tokens=int(os.getenv("VLM_MAX_TOKENS", "128")),
+        max_tokens=VLM_MAX_TOKENS,
         extra_body={
             # Keep the model resident between steps (cold loads cost 20–60s).
             "keep_alive": "-1",
+            # Request a larger/stable KV window so Ollama's prompt cache survives
+            # across steps (identical system prompt that never re-prefills).
+            "options": {"num_ctx": NUM_CTX},
         },
     )
     return resp.choices[0].message.content or ""
@@ -351,11 +389,17 @@ def normalize_action(action_data: dict | None) -> dict | None:
 def resolve_target(raw, dom: list[dict]) -> int | None:
     """Coerce a VLM 'target' into a real element id.
 
-    Accepts plain ints, "[7]", "7", and loose word matches against the DOM
-    snapshot. Returns None when the target can't be mapped to any element.
+    Accepts plain ints, floats that are whole numbers, single-element
+    arrays/lists (small VLMs echo the "[7]" tag notation as an actual JSON
+    array), "[7]", "7", and loose word matches against the DOM snapshot.
+    Returns None when the target can't be mapped to any element.
     """
+    if isinstance(raw, (list, tuple)) and len(raw) == 1:
+        raw = raw[0]
     if isinstance(raw, int):
         return raw
+    if isinstance(raw, float) and raw.is_integer():
+        return int(raw)
     if not isinstance(raw, str):
         return None
     s = raw.strip().strip("[]").strip("'\"`").strip()
@@ -543,9 +587,9 @@ def _stream_act(user_content: list[dict], model: str, dom_dicts: list[dict], sys
                 {"role": "user", "content": user_content},
             ],
             temperature=0,
-            max_tokens=int(os.getenv("VLM_MAX_TOKENS", "128")),
+            max_tokens=VLM_MAX_TOKENS,
             stream=True,
-            extra_body={"keep_alive": "-1"},
+            extra_body={"keep_alive": "-1", "options": {"num_ctx": NUM_CTX}},
         )
         for chunk in stream:
             delta = (chunk.choices[0].delta.content or "") if chunk.choices else ""
@@ -555,7 +599,17 @@ def _stream_act(user_content: list[dict], model: str, dom_dicts: list[dict], sys
 
         raw = "".join(chunks)
         logger.info("VLM stream: %.2fs (%d chars)", time.perf_counter() - t0, len(raw))
-        resp = build_response_from_raw(raw, dom_dicts)
+        try:
+            resp = build_response_from_raw(raw, dom_dicts)
+        except Exception as e:  # noqa: BLE001
+            # Mirror /act's one retry-with-fix-hint so a single malformed
+            # stream (e.g. "target": [6] or prose) becomes a real second shot
+            # instead of a bare 2s wait and a stuck-loop signal.
+            logger.warning("stream rejected once (%s) — retrying with fix hint", e)
+            hint = [*user_content, {"type": "text", "text": build_fix_hint(str(e))}]
+            raw2 = call_vlm(hint, model=model)
+            logger.info("stream retry: %.2fs (%d chars)", time.perf_counter() - t0, len(raw2))
+            resp = build_response_from_raw(raw2, dom_dicts)
         if forbid_repeat and action_signature(resp.action) in forbid_repeat:
             logger.warning("stream vetoed repeated action '%s' during rethink", resp.action.type)
             resp = untried_click_fallback(dom_dicts, clicked_ids or set())
@@ -582,7 +636,7 @@ def act_stream(req: ActRequest):
     task = req.task
     dom_dicts = [el.model_dump() for el in req.dom]
     history_dicts = [h.model_dump() for h in req.history]
-    model = req.model or VLM_MODEL
+    model = router_choose(req.model, req.screen_perception) or req.model or VLM_MODEL
     screenshot_b64 = resize_screenshot(req.screenshot_b64)
 
     user_content = build_user_content(
@@ -719,12 +773,15 @@ async def act(req: ActRequest) -> ActResponse:
         screen_perception=req.screen_perception,
     )
 
-    resp = _call_and_parse(user_content, req.model, dom_dicts)
+    resolved_model = router_choose(req.model, req.screen_perception) or req.model or VLM_MODEL
+    resp = _call_and_parse(user_content, resolved_model, dom_dicts)
+    resp.model_used = resolved_model
     logger.info(
-        "act resolved: action=%s target=%s blocked=%s (total %.2fs)",
+        "act resolved: action=%s target=%s blocked=%s model=%s (total %.2fs)",
         resp.action.type,
         getattr(resp.action, "target", "-"),
         resp.blocked,
+        resolved_model,
         time.perf_counter() - t_act,
     )
     return resp
