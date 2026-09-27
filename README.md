@@ -39,7 +39,7 @@ PRIVYSE is a **privacy-preserving browser agent** that understands webpages loca
 
 ---
 
-## 📑 Table of Contents
+## Table of Contents
 
 - [What is PRIVYSE?](#what-is-privyse)
 - [The Core Idea](#the-core-idea)
@@ -66,7 +66,7 @@ PRIVYSE is a **privacy-preserving browser agent** that understands webpages loca
 
 ---
 
-## ⚡ What is PRIVYSE?
+## What is PRIVYSE?
 
 Traditional computer-use agents capture the **raw browser screen** — every email, phone number, PAN, card, face and password — and ship those pixels to a remote vision-language model.
 
@@ -103,7 +103,7 @@ flowchart TD
 
 ---
 
-## 🧠 The Core Idea
+## The Core Idea
 
 PRIVYSE places a **privacy choke point between the browser and the AI**. The model perceives only what the gate approves:
 
@@ -138,7 +138,7 @@ The privacy layer isn't bolted on afterwards — it is the architecture. Trust i
 
 ---
 
-## 🛡️ Three-Tier Privacy System
+## Three-Tier Privacy System
 
 Sensitive information is classified into three tiers, each with a different protection strategy:
 
@@ -176,7 +176,7 @@ Cross-source continuity is intentional: a value discovered by OCR in an image ge
 
 ---
 
-## 👁️ On-Device Visual Perception
+## On-Device Visual Perception
 
 PRIVYSE doesn't rely exclusively on the DOM. Modern pages hide sensitive content in `<canvas>`, SVG, images, videos, rendered graphics and tiny visual text — regions the DOM never carries.
 
@@ -208,7 +208,7 @@ When the page hasn't visually changed, the pixel-hash **same-page cache** reuses
 
 ---
 
-## 🚪 The Zero-Leak Gate
+## The Zero-Leak Gate
 
 The most important component isn't the model — it's the **gate**.
 
@@ -252,7 +252,7 @@ nine failure paths. It is a real, narrow gap, not a claim of airtightness.
 
 ---
 
-## 🤖 Perception-Driven Model Routing
+## Perception-Driven Model Routing
 
 The on-device MobileViT map tells the server *how much reasoning this step needs* before the model is even called:
 
@@ -284,7 +284,7 @@ flowchart TD
 
 ---
 
-## ⚙️ End-to-End Architecture
+## End-to-End Architecture
 
 <p align="center">
 
@@ -323,7 +323,7 @@ flowchart TD
 
 ---
 
-## 🖼️ The Privacy Gate in Action
+## The Privacy Gate in Action
 
 Three real screenshots of the same GT-labelled KYC page (`test-site/india-pii.html`) — UPI, voter ID, driving licence and passport fields — processed through the **actual production pipeline**:
 
@@ -337,7 +337,7 @@ Two further checks (not pictured): the zero-leak gate OCR's the right-hand image
 
 ---
 
-## ✨ Features
+## Features
 
 ### 🎛️ Side panel control center
 
@@ -375,7 +375,7 @@ A draggable status dot that expands into a live pill (`CAPTURE · SANITIZE · GA
 
 ---
 
-## 🔒 Guarded Action Execution
+## Guarded Action Execution
 
 The AI doesn't get unrestricted browser control. Every action passes guard functions (`extension/core/action-guards.ts`) that refuse:
 
@@ -419,7 +419,7 @@ If a field's current value would be redacted by the sanitizer, the agent can onl
 
 ---
 
-## 📊 Benchmark Results
+## Benchmark Results
 
 All numbers from `benchmarks/results/dashboard.json` + the suite runners (GT-labelled pages, auto-generated):
 
@@ -444,7 +444,7 @@ Zero-leak is verified **twice**: `scanForLeaks` (regex over the outbound DOM JSO
 
 ---
 
-## ⚡ Latency
+## Latency
 
 ### Current measured performance
 
@@ -481,7 +481,7 @@ The full latency budget model is documented in [`docs/latency-budget-judge-gpu.m
 
 ---
 
-## 🧪 Security and Adversarial Testing
+## Security and Adversarial Testing
 
 PRIVYSE is evaluated against attacks a real deployment would face:
 
@@ -522,7 +522,7 @@ and the HITL confirmation — not on the gate alone.
 
 ---
 
-## 🇮🇳 Indian PII Coverage
+## Indian PII Coverage
 
 Dedicated detection patterns for Indian identifiers, all at **100% precision / recall** on the GT benchmark:
 
@@ -540,7 +540,7 @@ XXXX XXXX 3456     →   [AADHAAR_1]
 
 ---
 
-## 📦 Tech Stack
+## Tech Stack
 
 | Layer             | Technology |
 | ----------------- | ---------- |
@@ -553,7 +553,7 @@ XXXX XXXX 3456     →   [AADHAAR_1]
 
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```text
 PRIVYSE/
@@ -595,7 +595,7 @@ PRIVYSE/
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Start the server
 
@@ -686,7 +686,7 @@ host** (the shared `core/vision-host.ts` runs in-process) and the UI is a
 
 ---
 
-## 🧪 Running the Benchmarks
+## Running the Benchmarks
 
 ```powershell
 cd C:\SIH\26171\benchmarks
@@ -710,7 +710,7 @@ Selective runs: `BENCH_MODEL=qwen2.5vl:7b BENCH_ONLY=pii-in-the-wild BENCH_STEPS
 
 ---
 
-## 🗺️ Roadmap
+## Roadmap
 
 ### `00` 🔴 Close the self-audited defects — **in progress, highest priority**
 
@@ -745,7 +745,7 @@ Selective runs: `BENCH_MODEL=qwen2.5vl:7b BENCH_ONLY=pii-in-the-wild BENCH_STEPS
 
 ---
 
-## 🧬 Why PRIVYSE Is Different
+## Why PRIVYSE Is Different
 
 Most browser agents ask:
 
@@ -781,7 +781,7 @@ The privacy layer isn't an add-on.
 
 ---
 
-## 🏆 SIH 26171
+## SIH 26171
 
 **Track:** On-device Visual Perception for Lightweight Browser Agents
 
