@@ -78,11 +78,13 @@ Goal: full agent loop works with **no local model**. Everything after this only 
 - [ ] `POST /act {task, history(≤6 steps), screenshot_b64, dom[]}` → **guided JSON** (vLLM `guided_json` / `response_format`): `{thought, action, done}`.
 - [ ] **Action protocol (freeze this now, version it):**
 ```json
-{"action": {"type": "click|type|press|scroll|navigate|wait|extract|done",
-            "target": 14, "text": "...", "direction": "down", "url": "..."},
+{"action": {"type": "click|type|press|scroll|navigate|wait|extract|done|ask",
+            "target": 14, "text": "...", "direction": "down", "url": "...",
+            "question": "...", "options": ["..."]},
  "thought": "…", "done": false}
 ```
 - [ ] System prompt includes: redaction legend (`[EMAIL_1]` etc. are placeholders — reason about structure, never ask user to reveal them), action list, and "prefer `done` when task complete".
+- [ ] Human-in-the-loop: `ask` pauses the loop to surface a realtime question in the side panel + page banner, then continues with the answer in context (never dispatched to the page). Revealed protocol changes bump `PROTOCOL_VERSION`. Deterministic safety confirm (Proceed/Cancel) gates task-complete `done` and cross-origin `navigate` (NOT routine Enter — that froze the loop).
 - [ ] Malformed JSON → one repair retry → else return `wait` (loop never crashes).
 
 ### 1e. Executor + agent loop (background)

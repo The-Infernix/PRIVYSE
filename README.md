@@ -6,6 +6,11 @@
 
 PRIVYSE is a **privacy-preserving browser agent** that understands webpages locally, detects and redacts sensitive information, verifies the sanitized payload through a **fail-closed privacy gate**, and only then allows an AI model to reason over the page.
 
+> 📌 **Two open High-severity defects are documented in this README, not hidden.** One of them
+> (D2) currently bounds the privacy claim. See
+> [Open defects](#%EF%B8%8F-open-defects-self-audited-not-yet-fixed) before describing the boundary
+> as airtight.
+
 ### `CAPTURE → SANITIZE → GATE → REASON → ACT`
 
 **Your screen never leaves the device — and you can watch the gate every step of the way.**
@@ -27,7 +32,7 @@ PRIVYSE is a **privacy-preserving browser agent** that understands webpages loca
 [![Zero Leak](https://img.shields.io/badge/Zero--Leak-PASS-22C55E?style=for-the-badge)]()
 [![Adversarial](https://img.shields.io/badge/Adversarial-30%2F30%20Blocked-34D399?style=for-the-badge)]()
 [![Executor Guards](https://img.shields.io/badge/Executor%20Guards-27%2F27-0EA5E9?style=for-the-badge)]()
-[![On-device Assets](https://img.shields.io/badge/On--Device-40.8%20MB%2C%200%20MB%20off--device-0B1220?style=for-the-badge)]()
+[![On-device Assets](https://img.shields.io/badge/On--Device-56.9%20MB%2C%200%20MB%20off--device-0B1220?style=for-the-badge)]()
 [![Latency](https://img.shields.io/badge/Routed%20E2E-~13%20s%2Fstep-64748B?style=for-the-badge)]()
 
 </p>
@@ -49,6 +54,7 @@ PRIVYSE is a **privacy-preserving browser agent** that understands webpages loca
 - [Benchmark Results](#benchmark-results)
 - [Latency](#latency)
 - [Security and Adversarial Testing](#security-and-adversarial-testing)
+- [⚠️ Open defects (self-audited)](#%EF%B8%8F-open-defects-self-audited-not-yet-fixed)
 - [Indian PII Coverage](#indian-pii-coverage)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
@@ -192,7 +198,11 @@ flowchart LR
     style C fill:#fdecec,stroke:#b62835
 ```
 
-Everything is bundled locally — **no CDN model downloads** (~40.8 MB total on-device assets, 0 MB off-device). The MobileViT output is also compressed into a compact `ON-DEVICE PERCEPTION` block that ships to the server so the VLM reasons from locally-observed structure rather than blind pixels.
+Everything is bundled locally — **no CDN model downloads** (~56.9 MB total on-device assets, 0 MB off-device). The MobileViT output is also compressed into a compact `ON-DEVICE PERCEPTION` block that ships to the server so the VLM reasons from locally-observed structure rather than blind pixels.
+
+### WebGPU acceleration with automatic WASM fallback
+
+The ViT runs on **ONNX Runtime Web** with the **WebGPU execution provider first**: when `navigator.gpu` is present the tiles are classified on the GPU, and any op the WebGPU EP lacks falls through to the bundled WASM EP — the same `.jsep` runtime serves both, so nothing is re-downloaded. Machines without WebGPU (or where WebGPU init fails) transparently run the WASM EP. The active provider is surfaced live in the side panel resource meter (`perception · ⚡ WebGPU` / `wasm`), and `webgpu` is reported alongside the tile tags in the perception stats.
 
 When the page hasn't visually changed, the pixel-hash **same-page cache** reuses the tile map in `0 ms` — faces, OCR and the gate still run fresh every step.
 
@@ -210,24 +220,35 @@ Before anything crosses the privacy boundary, PRIVYSE performs **two independent
 ```mermaid
 flowchart TD
     S["Sanitized payload<br/>DOM JSON + masked pixels"] --> G["ZERO-LEAK GATE"]
-    G --> D1{"DOM scan clean?"}
-    G --> D2{"Pixel OCR clean?"}
-    G --> D3{"Gate itself healthy?"}
-    D1 -- "yes" --> J1["✓"]
-    D2 -- "yes" --> J2["✓"]
-    D3 -- "yes" --> J3["✓"]
-    J1 & J2 & J3 --> PASS["✅ PASS — send to model"]
-    D1 -- "no" --> BLK
-    D2 -- "no" --> BLK
-    D3 -- "no" --> BLK["🛑 BLOCKED — step stops<br/>nothing crosses"]
+    G --> C1{"DOM scan clean?<br/>(always runs)"}
+    G --> C2{"Pixel OCR clean?<br/>(needs vision host)"}
+    C1 -- "yes" --> J1["✓"]
+    C2 -- "yes" --> J2["✓"]
+    J1 & J2 --> PASS["✅ PASS — send to model"]
+    C1 -- "no" --> BLK
+    C2 -- "no" --> BLK
+    C2 -- "host down" --> SKIP["⚠️ SKIP that layer<br/>DOM layer still enforced<br/>panel shows gate: skip"]
     style G fill:#fdecec,stroke:#b62835,stroke-width:2px
     style PASS fill:#e8f7ee,stroke:#15803d
     style BLK fill:#fdecec,stroke:#b62835,stroke-width:2px
+    style SKIP fill:#fdf6e3,stroke:#b45309,stroke-width:2px
 ```
 
-### Fail-closed by design
+### Fail-closed by design — with one stated exception
 
-If the gate itself fails, the step is **blocked**. A gate that cannot verify privacy cannot approve the request — there is no fail-open path (see the [`docs/perception-failure-path-audit.md`](docs/perception-failure-path-audit.md)).
+The two layers do not fail in the same way, and it is worth being precise about it:
+
+| Layer | Runs when | If the check fails | If the layer can't run |
+| --- | --- | --- | --- |
+| **1 — DOM scan** (`assertNoLeaks`) | **Always.** Pure regex over the outbound JSON; needs no DOM context and no model | 🛑 **Blocked** | n/a — cannot be skipped |
+| **2 — Pixel OCR** | Only pages with non-DOM surfaces, and only when the vision host is up | 🛑 **Blocked** | ⚠️ **Skipped** — the step proceeds on layer 1 alone, and the side panel reports `gate: skip` |
+
+So a **DOM-layer** failure can never send. A **pixel-layer** check that runs and finds PII can never
+send either. But if the on-device vision host is down, PII that exists *only in pixels* is not
+OCR-verified on that step. This is a deliberate degradation — blocking every image-heavy page
+indefinitely would make the agent unusable — and it is recorded in
+[`docs/perception-failure-path-audit.md`](docs/perception-failure-path-audit.md), which walks all
+nine failure paths. It is a real, narrow gap, not a claim of airtightness.
 
 ---
 
@@ -379,9 +400,18 @@ flowchart TD
     Q -->|"type"| N4{"would overwrite a<br/>redacted corner?"}
     N4 -->|"re-asserts exact value"| OK
     N4 -->|"any other value"| BLK
+    Q -->|"ask"| N5{"human-in-the-loop"}
+    N5 -->|"user answers / skips"| OK
     style BLK fill:#fdecec,stroke:#b62835,stroke-width:2px
     style OK fill:#e8f7ee,stroke:#15803d
 ```
+
+### 👤 Human-in-the-loop (`ask`)
+
+Before irreversible or ambiguous steps, the agent pauses and **asks the user in real time** — the VLM emits an `ask` action (`{ type: "ask", question, options? }`), which is **never dispatched to the page**. The background loop surfaces it as a card in the side panel *and* a shadow-DOM banner on the page, then blocks until the answer:
+
+- **Answer / Skip** → the reply is fed back into VLM context as the step result (`USER ANSWER: …` / `USER SKIPPED …`) and the loop continues. A 25 s safety net (`ASK_TIMEOUT_MS`) auto-skips if no UI is reachable.
+- **Risky-action confirm** (default on, "Confirm risky actions" toggle in the side panel) — deterministic gate, not model-driven: task-complete `done` and cross-origin `navigate` pause for a **Proceed / Cancel** choice. Cancel blocks the action and injects a `USER CANCELED` warning so the loop must rethink, never retry it. (Routine Enter submissions are NOT gated — gating every Enter froze the loop.)
 
 ### DO-NOT-MODIFY veto
 
@@ -408,7 +438,7 @@ All numbers from `benchmarks/results/dashboard.json` + the suite runners (GT-lab
 | Adversarial suite        | **30/30 blocked** |
 | Executor guard tests     |         **27/27** |
 | Raw data off-device      |          **0 MB** |
-| On-device assets         |       40.8 MB (incl. WASM runtimes) |
+| On-device assets         |       56.9 MB (incl. WebGPU/WASM runtimes) |
 
 Zero-leak is verified **twice**: `scanForLeaks` (regex over the outbound DOM JSON) *and* an OCR pass over the sanitized screenshot pixels — the exact bytes that would be uploaded. Pixel precision/recall come from rasterized masks of predicted vs. GT boxes clipped to the captured viewport.
 
@@ -471,6 +501,25 @@ PRIVYSE is evaluated against attacks a real deployment would face:
 
 > Known flake: the zero-leak OCR gate is occasionally nondeterministic (1 failure in ~4 full runs, a blur-sample variance on one image page) — never a leak; it fails *closed* (blocks the step) when the OCR can't confirm.
 
+### ⚠️ Open defects (self-audited, not yet fixed)
+
+Found by our own audit of the human-in-the-loop path, documented in
+[`docs/hitl-test-matrix.md`](docs/hitl-test-matrix.md). Listed here rather than buried, because a
+reader should not have to take the privacy claim on trust:
+
+| ID | Severity | Defect | Status |
+| --- | --- | --- | --- |
+| **D2** | **High** | `history[].result` and the user's `task` string are attached to the outbound body **untokenized** (`core/sanitizer.ts`), and layer 1 of the gate only walks `body.dom[].text/value` (`core/zero-leak.ts`). PII typed into a human-in-the-loop answer would therefore leave in plaintext **with the gate blind to it**. | **Open — queued first** |
+| **D1** | **High** | The risky-action confirm detects Cancel only via `startsWith("cancel")`, so typing `no` (or any other non-`cancel` answer) **executes** the action — including `done` on a payment flow. Needs an explicit allow-list. | Open |
+
+**D2 is the one that matters.** Until it is closed and verified, the privacy boundary should be read
+as: *DOM-sourced PII is provably blocked; PII introduced through the agent's own conversation with
+the user is not yet covered.* The fix is narrow — tokenize `task` and `history[].result` through
+the same stable-token path as the DOM, and extend `scanForLeaks` to walk them.
+
+Safety in the meantime rests on the strict JSON action schema, the deterministic executor guards,
+and the HITL confirmation — not on the gate alone.
+
 ---
 
 ## 🇮🇳 Indian PII Coverage
@@ -495,11 +544,11 @@ XXXX XXXX 3456     →   [AADHAAR_1]
 
 | Layer             | Technology |
 | ----------------- | ---------- |
-| Extension         | TypeScript · WXT · Chrome Manifest V3 |
+| Extension         | TypeScript · WXT · Chrome Manifest V3 **+ Firefox Manifest V2** |
 | On-device vision  | MobileViT-Small (q8 ONNX) · ONNX Runtime Web · BlazeFace · Tesseract.js (WASM) |
 | Backend           | FastAPI · Python · Ollama · Qwen2.5-VL 3B / 7B |
 | Privacy core      | DOM PII detection · stable tokenization · tiered redaction · zero-leak gate · pixel-hash perception cache · fail-closed design |
-| Safety layer      | Executor action guards · DO-NOT-MODIFY write veto · scheme allow-lists |
+| Safety layer      | Executor action guards · DO-NOT-MODIFY write veto · scheme allow-lists · human-in-the-loop `ask` + risky-action Proceed/Cancel confirm |
 | Testing           | Ground-truth webpages · perception eval · adversarial suite · executor tests · VLM bench · latency waterfall |
 
 ---
@@ -509,24 +558,28 @@ XXXX XXXX 3456     →   [AADHAAR_1]
 ```text
 PRIVYSE/
 │
-├── extension/                 # WXT Chrome MV3 extension (TypeScript)
+├── extension/                 # WXT extension (Chrome MV3 + Firefox MV2)
 │   ├── core/
-│   │   ├── protocol.ts        # frozen v1 action protocol + message types
+│   │   ├── protocol.ts        # frozen action protocol v2 (+ human-in-the-loop ask)
 │   │   ├── sanitizer.ts       # privacy gate + Tier A/B/C redaction
-│   │   ├── perception.ts      # on-device MobileViT screen classification
+│   │   ├── perception.ts      # on-device MobileViT (WebGPU-first, WASM fallback)
 │   │   ├── vision.ts          # BlazeFace + Tesseract host backend
+│   │   ├── vision-host.ts     # shared vision host (Chrome offscreen / FF bg page)
+│   │   ├── config.ts          # storage-backed server URL (side panel editable)
 │   │   ├── action-guards.ts   # executor safety guards (+ DO-NOT-MODIFY)
 │   │   ├── zero-leak.ts       # DOM regex + pixel OCR gate
 │   │   ├── orb.ts             # floating status orb
 │   │   ├── privacy-lens.ts    # live PII highlighter
 │   │   └── ai-view.ts         # tokenized + Set-of-Marks view
 │   ├── entrypoints/           # background · content · sidepanel · offscreen
-│   └── public/models/         # bundled weights + WASM (no CDN)
+│   └── public/models/         # bundled weights + WebGPU/WASM (no CDN)
 │
 ├── server/                    # FastAPI — /health /act /rethink /models
 │   ├── app.py                 # endpoints, prompt builder, resolve_target
 │   ├── routing.py             # perception-driven 3B/7B routing
-│   └── prompts.py             # system prompt + user-content builder
+│   ├── prompts.py             # system prompt + user-content builder
+│   ├── Dockerfile             # container image for the agent server
+│   └── docker-compose.yml     # server + optional Ollama GPU profile
 │
 ├── test-site/                 # GT-labelled pages (PII · faces · canvas ·
 │                              # Indian KYC · perception GT · adversarial)
@@ -564,29 +617,70 @@ $env:VLM_MODEL_SMALL = "qwen2.5vl:3b"
 $env:VLM_MODEL_BIG   = "qwen2.5vl:7b"
 ```
 
-### 2. Build the extension
+**Point the server at any OpenAI-compatible VLM.** Ollama is the default, but a
+hosted endpoint (OpenAI, vLLM, TGI, OpenRouter) works by overriding the base URL
+and key:
+
+```powershell
+$env:OPENAI_BASE_URL = "https://api.openai.com/v1"
+$env:VLM_API_KEY     = "sk-..."       # required by hosted endpoints
+$env:VLM_MODEL       = "gpt-4o-mini"
+```
+
+### 2. Deploy with Docker
+
+```powershell
+cd C:\SIH\26171\server
+copy .env.example .env                # then edit OPENAI_BASE_URL / VLM_API_KEY
+
+# Server only (hosted VLM, or an Ollama you already run):
+docker compose up --build
+
+# Server + bundled local Ollama on the GPU (needs nvidia-container-toolkit):
+docker compose --profile gpu up --build
+docker compose exec ollama ollama pull qwen2.5vl:3b
+```
+
+Then point the extension's **Advanced → Server URL** at the host
+(`http://<host>:8000`) — see step 5.
+
+### 3. Build the extension
 
 ```powershell
 cd C:\SIH\26171\extension
 
-npm install      # only if node_modules is missing
-npm run build    # one-shot build (or `npm run dev` for HMR)
+npm install              # only if node_modules is missing
+npm run build            # → .output/chrome-mv3  (or `npm run dev` for HMR)
+npm run build:firefox    # → .output/firefox-mv2
 ```
 
-### 3. Load into Chrome
+### 4. Load into Chrome or Firefox
 
 ```text
-chrome://extensions
-   → Developer mode
-   → Load unpacked
-   → C:\SIH\26171\extension\.output\chrome-mv3
+Chrome
+  chrome://extensions
+     → Developer mode
+     → Load unpacked
+     → C:\SIH\26171\extension\.output\chrome-mv3
+
+Firefox
+  about:debugging#/runtime/this-firefox
+     → Load Temporary Add-on…
+     → C:\SIH\26171\extension\.output\firefox-mv2\manifest.json
 ```
 
-### 4. Run your first step
+Cross-browser notes: Chrome MV3 runs the on-device vision models in a hidden
+**offscreen document** (service workers have no DOM) and opens the UI as a
+**side panel**. Firefox MV2 has neither API — the **background page is the DOM
+host** (the shared `core/vision-host.ts` runs in-process) and the UI is a
+**sidebar** (`sidebar_action`), toggled from the browser's sidebar button or
+`Alt+K`.
+
+### 5. Run your first step
 
 1. Open a scrollable webpage.
-2. Click the extension icon → **Open side panel**.
-3. Confirm *"Server up at http://127.0.0.1:8000"*.
+2. Open the agent UI (Chrome: extension icon → **Open side panel**; Firefox: sidebar / `Alt+K`).
+3. Confirm *"Server up at …"* — change **Advanced → Server URL** if the server is remote.
 4. Enter a task and hit **Run one step**.
 5. Watch the privacy pipeline execute — `CAPTURE → SANITIZE → GATE ✓ → REASON → ACT`.
 
@@ -618,16 +712,31 @@ Selective runs: `BENCH_MODEL=qwen2.5vl:7b BENCH_ONLY=pii-in-the-wild BENCH_STEPS
 
 ## 🗺️ Roadmap
 
-### `01` ⚡ Latency — **target: p50 < 5 s/step on judge-class GPU**
+### `00` 🔴 Close the self-audited defects — **in progress, highest priority**
+
+- **D2** — tokenize `task` and `history[].result` through the same stable-token path as the DOM, and
+  extend `scanForLeaks` to walk them so the gate is no longer blind to conversation-sourced PII
+- **D1** — replace the `startsWith("cancel")` Cancel check in the risky-action confirm with an
+  explicit allow-list
+- Re-run `hitl-test-matrix.md` (25 cases) once both land; automation via
+  `mock-act-server.mjs` is built but not yet wired into CI
+
+### `01` ⚡ Latency — **target: p50 < 5 s/step on judge-class GPU** (measured 12.7 s on 4 GB)
 
 - Vision pipeline + VLM inference optimization
 - Perception caching (done: pixel-hash LRU) · model routing (done)
 - GPU-resident small model + quantization for the judge box
 
-### `02` 🦊 Firefox pass
+### `02` 🦊 Firefox pass — **done: cross-browser build + shared vision host**
 
-- Sidebar as the vision host (no offscreen documents in MV2)
-- `browser.*` API port · Firefox packaging for the judging VM
+- ✅ Shared `core/vision-host.ts` runs the same model stack in the Chrome
+  offscreen document and the Firefox MV2 background page (no offscreen API in
+  FF — the background page *is* the DOM host)
+- ✅ Environment-aware manifest: Firefox MV2 + `browser_specific_settings.gecko.id`,
+  sidebar UI, guarded `sidePanel`/`sidebarAction` open paths
+- ✅ Bundled **WebGPU (`.jsep`) ORT runtime** with automatic WASM fallback
+- Remaining: on-device Firefox smoke test on the judging VM (this build machine
+  has no Firefox installed) — say "built and type-checked", not "tested"
 
 ### `03` 🎥 Demo and evaluation
 
