@@ -501,7 +501,7 @@ PRIVYSE is evaluated against attacks a real deployment would face:
 
 > Known flake: the zero-leak OCR gate is occasionally nondeterministic (1 failure in ~4 full runs, a blur-sample variance on one image page) — never a leak; it fails *closed* (blocks the step) when the OCR can't confirm.
 
-### ⚠️ Open defects (self-audited, not yet fixed)
+### Open defects (self-audited, not yet fixed)
 
 Found by our own audit of the human-in-the-loop path, documented in
 [`docs/hitl-test-matrix.md`](docs/hitl-test-matrix.md). Listed here rather than buried, because a
