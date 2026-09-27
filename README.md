@@ -8,7 +8,7 @@ PRIVYSE is a **privacy-preserving browser agent** that understands webpages loca
 
 > 📌 **Two open High-severity defects are documented in this README, not hidden.** One of them
 > (D2) currently bounds the privacy claim. See
-> [Open defects](#%EF%B8%8F-open-defects-self-audited-not-yet-fixed) before describing the boundary
+> [Open defects](#open-defects-self-audited-not-yet-fixed) before describing the boundary
 > as airtight.
 
 ### `CAPTURE → SANITIZE → GATE → REASON → ACT`
@@ -54,7 +54,7 @@ PRIVYSE is a **privacy-preserving browser agent** that understands webpages loca
 - [Benchmark Results](#benchmark-results)
 - [Latency](#latency)
 - [Security and Adversarial Testing](#security-and-adversarial-testing)
-- [⚠️ Open defects (self-audited)](#%EF%B8%8F-open-defects-self-audited-not-yet-fixed)
+- [⚠️ Open defects (self-audited)](#open-defects-self-audited-not-yet-fixed)
 - [Indian PII Coverage](#indian-pii-coverage)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
