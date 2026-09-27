@@ -5,7 +5,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "bench": "node scripts/build.mjs && node run.mjs",
-    "bench:vlm": "node scripts/build.mjs && node vlm-bench.mjs"
+    "bench:vlm": "node scripts/build.mjs && node vlm-bench.mjs",
+    "mock": "node mock-act-server.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.24.0",

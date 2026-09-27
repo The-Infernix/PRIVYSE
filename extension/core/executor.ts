@@ -337,6 +337,10 @@ export async function executeAction(action: AgentAction): Promise<string> {
     case "done":
       cursor.notify("Done");
       return `done: ${action.answer ?? ""}`;
+    case "ask":
+      // Human-in-the-loop actions never reach the page — the background
+      // intercepts them before dispatch. This branch is a safety net.
+      throw new Error("ask is handled by the background, never the page");
     default:
       return `unknown action: ${JSON.stringify(action)}`;
   }

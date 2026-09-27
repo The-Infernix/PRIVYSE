@@ -13,7 +13,10 @@ Usage:
     uvicorn app:app --host 127.0.0.1 --port 8000 --reload
 
     # 3. Optionally override the model via env:
-    #    VLM_MODEL=qwen2.5vl:7b  (or llava:7b, etc.)
+    #    VLM_MODEL=qwen2.5vl:7b       (or llava:7b, moondream, etc.)
+    #    OPENAI_BASE_URL=...          (any OpenAI-compatible endpoint)
+    #    VLM_API_KEY=...              (required by hosted endpoints; ignored by Ollama)
+    #    VLM_MAX_TOKENS=128, NUM_CTX=4096, IMAGE_MAX_SIDE=800
 """
 
 import json
@@ -51,6 +54,10 @@ PROTOCOL_VERSION = 1
 # ---------------------------------------------------------------------------
 VLM_MODEL = os.getenv("VLM_MODEL", "qwen2.5vl:3b")
 OLLAMA_BASE = os.getenv("OPENAI_BASE_URL", "http://127.0.0.1:11434/v1")
+# API key for the OpenAI-compatible backend. Ollama ignores it, so the default
+# is a dummy; point this at a hosted endpoint (e.g. OpenAI, vLLM, TGI, OpenRouter)
+# together with OPENAI_BASE_URL to run the VLM remotely.
+VLM_API_KEY = os.getenv("VLM_API_KEY", "ollama")
 # Generation ceiling. The prompt's LENGTH BUDGET asks for <45-token replies,
 # but "extract" actions carry the answer text inline (email+phone+PAN+Aadhaar),
 # which can exceed 64 tokens — truncating mid-JSON breaks parsing and sends the
@@ -69,7 +76,7 @@ NUM_CTX = int(os.getenv("NUM_CTX", "4096"))
 
 vlm_client = OpenAI(
     base_url=OLLAMA_BASE,
-    api_key="ollama",  # Ollama doesn't need a real key
+    api_key=VLM_API_KEY,
     timeout=120.0,
     max_retries=0,
 )
@@ -81,6 +88,8 @@ def check_vlm_alive() -> bool:
         import json
         import urllib.request
         req = urllib.request.Request(f"{OLLAMA_BASE}/models", method="GET")
+        if VLM_API_KEY:
+            req.add_header("Authorization", f"Bearer {VLM_API_KEY}")
         with urllib.request.urlopen(req, timeout=3.0) as resp:
             return resp.status == 200
     except Exception:
@@ -133,6 +142,12 @@ class DoneAction(BaseModel):
     answer: Optional[str] = None
 
 
+class AskAction(BaseModel):
+    type: Literal["ask"]
+    question: str
+    options: list[str] = []
+
+
 Action = Annotated[
     Union[
         ClickAction,
@@ -143,6 +158,7 @@ Action = Annotated[
         WaitAction,
         ExtractAction,
         DoneAction,
+        AskAction,
     ],
     Field(discriminator="type"),
 ]
@@ -269,7 +285,7 @@ _vlm_ok: bool | None = None  # cached health, refreshed on /health
 # Test site (ground-truth PII pages for benchmarking + agent demo tasks)
 # ---------------------------------------------------------------------------
 
-_TEST_SITE_DIR = Path(__file__).resolve().parent.parent / "test-site"
+_TEST_SITE_DIR = Path(os.getenv("TEST_SITE_DIR", str(Path(__file__).resolve().parent.parent / "test-site")))
 if _TEST_SITE_DIR.is_dir():
     app.mount(
         "/test-site",
@@ -281,7 +297,12 @@ if _TEST_SITE_DIR.is_dir():
 # vision host — mirrors the extension's packaged `public/models` so the
 # benchmark loop and a developer build of the extension can load ORT from the
 # same origin that serves the test site.
-_MODELS_DIR = Path(__file__).resolve().parent.parent / "extension" / "public" / "models"
+_MODELS_DIR = Path(
+    os.getenv(
+        "MODELS_DIR",
+        str(Path(__file__).resolve().parent.parent / "extension" / "public" / "models"),
+    )
+)
 if _MODELS_DIR.is_dir():
     app.mount(
         "/models",
@@ -300,6 +321,7 @@ def health():
         "vlm_connected": _vlm_ok,
         "vlm_model": VLM_MODEL,
         "vlm_endpoint": OLLAMA_BASE,
+        "vlm_auth": bool(VLM_API_KEY),
         "prompt_ready": bool(SYSTEM_PROMPT),
         "num_ctx": NUM_CTX,
         "max_tokens": VLM_MAX_TOKENS,
@@ -449,7 +471,7 @@ def build_response_from_raw(raw: str, dom: list[dict]) -> ActResponse:
     if action_data is None:
         raise ValueError("'action' is missing or has no string 'type'")
 
-    valid_types = {"click", "type", "press", "scroll", "navigate", "wait", "extract", "done"}
+    valid_types = {"click", "type", "press", "scroll", "navigate", "wait", "extract", "done", "ask"}
     action_type = action_data["type"]
     if action_type not in valid_types:
         raise ValueError(f"invalid action type '{action_type}'")

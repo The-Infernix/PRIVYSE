@@ -1,5 +1,19 @@
-import { SERVER_URL } from "@/core/config";
-import type { ExtMessage } from "@/core/protocol";
+import {
+  getServerUrl,
+  normalizeServerUrl,
+  STORAGE_SERVER_URL,
+} from "@/core/config";
+import type { ExtMessage, RedactionView } from "@/core/protocol";
+import {
+  buildAuditCard,
+  renderRegionOverlay,
+} from "@/core/redaction-map";
+import {
+  renderFilmstrip,
+  thumbFromImage,
+  type FilmFrame,
+} from "@/core/filmstrip";
+import { buildReceipt, type ReceiptData } from "@/core/receipt";
 
 const logEl = document.getElementById("log") as HTMLUListElement;
 const shotEl = document.getElementById("shot") as HTMLImageElement;
@@ -22,6 +36,7 @@ const debugEl = document.getElementById("debug") as HTMLInputElement;
 const maxStepsEl = document.getElementById("maxSteps") as HTMLInputElement;
 const shotQualityEl = document.getElementById("shotQuality") as HTMLSelectElement;
 const modelEl = document.getElementById("model") as HTMLSelectElement;
+const serverUrlEl = document.getElementById("serverUrl") as HTMLInputElement;
 const liveDotEl = document.getElementById("liveDot") as HTMLSpanElement;
 const toggleLiveEl = document.getElementById("toggleLive") as HTMLButtonElement;
 const toggleTechEl = document.getElementById("toggleTech") as HTMLButtonElement;
@@ -30,6 +45,12 @@ const clearHistEl = document.getElementById("clearHist") as HTMLButtonElement;
 const histListEl = document.getElementById("histList") as HTMLDivElement;
 const advancedEl = document.getElementById("advanced") as HTMLDetailsElement;
 const toggleAdvancedEl = document.getElementById("toggleAdvanced") as HTMLButtonElement;
+const filmstripEl = document.getElementById("filmstrip") as HTMLDivElement;
+const auditPopEl = document.getElementById("auditPop") as HTMLDivElement;
+const printRootEl = document.getElementById("printRoot") as HTMLDivElement;
+const reportBtnEl = document.getElementById("report") as HTMLButtonElement;
+const narratorEl = document.getElementById("narrator") as HTMLQuoteElement;
+const filmHintEl = document.getElementById("filmHint") as HTMLParagraphElement;
 const thinkStatusEl = document.getElementById("thinkStatus") as HTMLSpanElement;
 const decGoalEl = document.getElementById("decGoal") as HTMLSpanElement;
 const decObservedEl = document.getElementById("decObserved") as HTMLSpanElement;
@@ -37,6 +58,14 @@ const decProtectedEl = document.getElementById("decProtected") as HTMLSpanElemen
 const decTargetEl = document.getElementById("decTarget") as HTMLSpanElement;
 const decActionEl = document.getElementById("decAction") as HTMLSpanElement;
 const decResultEl = document.getElementById("decResult") as HTMLSpanElement;
+const askCardEl = document.getElementById("askCard") as HTMLElement;
+const askKindEl = document.getElementById("askKind") as HTMLSpanElement;
+const askQuestionEl = document.getElementById("askQuestion") as HTMLParagraphElement;
+const askOptionsEl = document.getElementById("askOptions") as HTMLDivElement;
+const askInputEl = document.getElementById("askInput") as HTMLInputElement;
+const askGoEl = document.getElementById("askGo") as HTMLButtonElement;
+const askSkipEl = document.getElementById("askSkip") as HTMLButtonElement;
+const confirmRiskyEl = document.getElementById("confirmRisky") as HTMLInputElement;
 const agentStateEl = document.getElementById("agentState") as HTMLElement;
 const agentStateTextEl = document.getElementById("agentStateText") as HTMLSpanElement;
 const stageTextEl = document.getElementById("stageText") as HTMLSpanElement;
@@ -64,6 +93,7 @@ const STORAGE_DEBUG = "sihDebug";
 const STORAGE_ORB = "sihOrbEnabled";
 const STORAGE_LENS = "sihLens";
 const STORAGE_AI_VIEW = "sihAiView";
+const STORAGE_CONFIRM = "sihConfirmRisky";
 
 // ── Persisted state ───────────────────────────────────────────────────────
 
@@ -96,6 +126,8 @@ interface StoredSession {
   status: "running" | "done" | "stuck" | "failed" | "stopped";
   entries: LogEntry[];
   privacy?: SessionPrivacy;
+  /** Forensic filmstrip frames for the printable privacy report. */
+  frames?: FilmFrame[];
 }
 
 let sessions: StoredSession[] = loadSessions();
@@ -117,6 +149,12 @@ function loadSessions(): StoredSession[] {
 function persistSessions() {
   sessions = sessions.slice(0, MAX_SESSIONS);
   for (const s of sessions) s.entries = s.entries.slice(-MAX_ENTRIES);
+  // Filmstrip frames are heavy (base64 thumbs, up to ~0.5 MB per run). Only the
+  // newest session keeps them — the report always reads current ?? sessions[0] —
+  // so older history stays slim and we never blow the localStorage quota.
+  for (let i = 1; i < sessions.length; i++) {
+    if (sessions[i].frames) sessions[i].frames = undefined;
+  }
   try {
     localStorage.setItem(LS_SESSIONS, JSON.stringify(sessions));
   } catch {
@@ -127,6 +165,166 @@ function persistSessions() {
       /* give up silently */
     }
   }
+}
+
+// ── Forensic exhibit state (redaction map + filmstrip + narrator) ─────────
+
+const MAX_FILM_FRAMES = 12;
+let currentRegions: RedactionView[] = [];
+let filmFrames: FilmFrame[] = [];
+let filmIndex = -1;
+let lastStepNum = 1;
+let lastVer = "idle";
+let overlayOrig: { destroy: () => void } | null = null;
+let overlaySan: { destroy: () => void } | null = null;
+let auditVisible = false;
+let lastPushSrc = "";
+
+function trackStep(m: Extract<ExtMessage, { type: "loop-status" }>) {
+  lastStepNum = m.step;
+}
+
+function getStage(img: HTMLImageElement): HTMLElement | null {
+  return img.closest(".img-stage");
+}
+
+function applyRegionOverlays() {
+  overlayOrig?.destroy();
+  overlaySan?.destroy();
+  overlayOrig = null;
+  overlaySan = null;
+  if (currentRegions.length === 0) return;
+
+  const inspect = (region: import("@/core/redaction-map").RegionDescriptor, anchor: HTMLElement) => {
+    showAudit(region, anchor);
+  };
+
+  if (!shotEl.hidden) {
+    const stageSan = getStage(shotEl);
+    if (stageSan) overlaySan = renderRegionOverlay(stageSan, shotEl, currentRegions, inspect);
+  }
+  if (!shotOriginalEl.hidden) {
+    const stageOrig = getStage(shotOriginalEl);
+    if (stageOrig) overlayOrig = renderRegionOverlay(stageOrig, shotOriginalEl, currentRegions, inspect);
+  }
+}
+
+function showAudit(
+  region: import("@/core/redaction-map").RegionDescriptor,
+  anchor: HTMLElement,
+) {
+  auditPopEl.innerHTML = "";
+  auditPopEl.appendChild(buildAuditCard(region));
+  auditPopEl.hidden = false;
+  auditVisible = true;
+
+  const anchorRect = anchor.getBoundingClientRect();
+  const popRect = auditPopEl.getBoundingClientRect();
+  const margin = 8;
+  let left = anchorRect.left;
+  if (left + popRect.width + margin > window.innerWidth) {
+    left = Math.max(margin, window.innerWidth - popRect.width - margin);
+  }
+  let top = anchorRect.bottom + margin;
+  if (top + popRect.height + margin > window.innerHeight) {
+    top = Math.max(margin, anchorRect.top - popRect.height - margin);
+  }
+  auditPopEl.style.left = `${left}px`;
+  auditPopEl.style.top = `${top}px`;
+}
+
+function hideAudit() {
+  auditVisible = false;
+  auditPopEl.hidden = true;
+}
+
+function pushFilmFrame() {
+  if (shotEl.hidden) return;
+  const sanitized = shotEl.src;
+  if (!sanitized || !sanitized.startsWith("data:")) return;
+  const regions = [...currentRegions];
+  const step = lastStepNum;
+  const verdict: FilmFrame["verdict"] = lastVer === "block" ? "block" : lastVer === "skip" ? "skip" : "pass";
+  filmHintEl.hidden = false;
+
+  // Dedupe: a rethunk re-sends the privacy message for the SAME shot — update
+  // the tail frame's verdict/regions instead of stacking an identical frame.
+  const tail = filmFrames[filmFrames.length - 1];
+  if (tail && tail.step === step && lastPushSrc === sanitized) {
+    tail.verdict = verdict;
+    tail.regions = regions;
+    filmIndex = filmFrames.length - 1;
+    renderFilmstrip(filmstripEl, filmFrames, filmIndex, filmOnSelect);
+    return;
+  }
+  lastPushSrc = sanitized;
+
+  const push = (shot: string, orig?: string) => {
+    filmFrames.push({ step, verdict, shot, orig, regions });
+    if (filmFrames.length > MAX_FILM_FRAMES) filmFrames.shift();
+    // Thumb decoding resolves out of order — keep the rail sorted by step so a
+    // slow older frame never lands after a newer one.
+    filmFrames.sort((a, b) => a.step - b.step);
+    filmIndex = filmFrames.length - 1;
+    renderFilmstrip(filmstripEl, filmFrames, filmIndex, filmOnSelect);
+  };
+
+  const orig = shotOriginalEl.hidden ? undefined : shotOriginalEl.src;
+  void thumbFromImage(sanitized).then((shot) => {
+    if (orig && orig.startsWith("data:")) {
+      void thumbFromImage(orig).then((o) => push(shot, o)).catch(() => push(shot));
+    } else {
+      push(shot);
+    }
+  }).catch(() => {
+    /* thumbnails are decorative — skip on decode failure */
+  });
+}
+
+function onFilmSelect(frame: FilmFrame) {
+  const i = filmFrames.indexOf(frame);
+  filmIndex = i;
+  renderFilmstrip(filmstripEl, filmFrames, filmIndex, filmOnSelect);
+
+  if (frame.shot) {
+    shotEl.src = frame.shot;
+    shotEl.hidden = false;
+    noshotEl.hidden = true;
+  }
+  if (frame.orig) {
+    shotOriginalEl.src = frame.orig;
+    shotOriginalEl.hidden = false;
+    noshotOriginalEl.hidden = true;
+  } else {
+    // No archived original for this frame — don't leave a stale one on screen.
+    shotOriginalEl.removeAttribute("src");
+    shotOriginalEl.hidden = true;
+    noshotOriginalEl.hidden = false;
+  }
+  currentRegions = frame.regions;
+  applyRegionOverlays();
+
+  const n = frame.regions.length;
+  pvProtRegionsEl.innerHTML = `<b>${n}</b> sensitive region${n === 1 ? "" : "s"} removed`;
+  pvRaw2El.textContent = "0";
+  previewStatsEl.hidden = false;
+}
+
+// Shared frame-select callback, suppressed while drag-scrolling the rail.
+let filmDragLock = false;
+function filmOnSelect(frame: FilmFrame) {
+  if (filmDragLock) return;
+  onFilmSelect(frame);
+}
+
+function setNarrator(text: string | null) {
+  if (!text || text.length === 0) {
+    narratorEl.hidden = true;
+    narratorEl.textContent = "";
+    return;
+  }
+  narratorEl.textContent = text;
+  narratorEl.hidden = false;
 }
 
 // ── Session lifecycle ─────────────────────────────────────────────────────
@@ -146,6 +344,13 @@ function beginSession(kind: "loop" | "step") {
   localStorage.setItem("sihLoopSeq", String(loopSeq));
   logEl.innerHTML = "";
   liveDotEl.className = "dot running";
+  filmFrames = [];
+  filmIndex = -1;
+  currentRegions = [];
+  renderFilmstrip(filmstripEl, filmFrames, filmIndex, filmOnSelect);
+  filmHintEl.hidden = true;
+  lastPushSrc = "";
+  resetPrivacyDisplay();
   resetDecisionDisplay();
   decGoalEl.textContent = current.task;
   return current;
@@ -155,6 +360,7 @@ function finalizeSession(status: StoredSession["status"]) {
   if (!current) return;
   current.status = status;
   current.ended = Date.now();
+  current.frames = filmFrames.slice();
   sessions.unshift(current);
   current = null;
   persistSessions();
@@ -176,6 +382,7 @@ function pushEntry(level: Level, text: string, screenshot?: string) {
   if (current) current.entries.push({ level, text, human, tech });
   renderEntry(logEl, { level, text, human, tech });
   if (screenshot) showSanitized(screenshot);
+  if (!tech) setNarrator(human || text);
 }
 
 function renderEntry(ul: HTMLUListElement, e: LogEntry, showTime = true) {
@@ -244,6 +451,12 @@ function humanizeLog(text: string): string {
   if (/^🧠 VLM thought:/.test(text)) return text;
   if (/^→ Action: /.test(text)) return `Agent selected ${text.replace(/^→ Action: /, "")}`;
   if (/^Done: /.test(text)) return `✓ ${text.replace(/^Done: /, "")}`;
+  if (/^❓ Asking you:/.test(text)) return text.replace(/^❓ Asking you: ?/, "🤔 The agent needs your input: ");
+  if (/^👤 You answered:/.test(text)) return text.replace(/^👤 You answered: ?/, "✓ Your answer: ");
+  if (/^⏭ Skipped question/.test(text)) return "⏭ Question skipped — continuing.";
+  if (/^USER CANCELED:/.test(text)) return `⛔ You canceled: ${text.replace(/^USER CANCELED: ?/, "")}`;
+  if (/^Confirmed by user:/.test(text)) return `✓ You confirmed: ${text.replace(/^Confirmed by user: ?/, "")}`;
+  if (/^USER SKIPPED/.test(text)) return "⏭ Question skipped — continuing.";
   if (text.startsWith("Server up at")) return "✓ Connected to the local VLM server";
   if (text.startsWith("Server unreachable")) return "⚠ Server unreachable — start it with uvicorn";
   if (text.startsWith("Preloading on-device vision models")) return "Warming up on-device vision (face + OCR)…";
@@ -302,7 +515,7 @@ function privacySummary(s: StoredSession): string {
   const perc = p.perceptionSummary && p.perceptionSummary.tiles
     ? ` · perception ${p.perceptionSummary.tiles}`
     : "";
-  return `${p.protected} protected · 0 leaked · ${gate}${perc}`;
+  return `${p.protected} protected · ${p.leaked} leaked · ${gate}${perc}`;
 }
 
 function sessionCard(s: StoredSession, index: number): HTMLElement {
@@ -387,6 +600,7 @@ function showPreview(m: Extract<ExtMessage, { type: "capture-preview" }>) {
   pvProtRegionsEl.innerHTML = `<b>${m.protected}</b> sensitive region${m.protected === 1 ? "" : "s"} removed`;
   pvRaw2El.textContent = "0";
   pvPayloadEl.innerHTML = `<b>${kb || "—"}</b> payload size`;
+  applyRegionOverlays();
 }
 
 function setLoopUI(running: boolean, step?: number, max?: number) {
@@ -399,6 +613,7 @@ function setLoopUI(running: boolean, step?: number, max?: number) {
   } else {
     loopBtn.textContent = "▶ Start agent";
     loopBtn.classList.remove("active");
+    clearAsk();
     statusEl.textContent = step !== undefined ? `Stopped at step ${step}` : "Ready";
     statusEl.className = "hint";
     setStage("ready", step !== undefined ? `Stopped at step ${step}` : undefined);
@@ -495,6 +710,13 @@ function resetPrivacyDisplay() {
   shotOriginalEl.hidden = true;
   noshotEl.hidden = false;
   noshotOriginalEl.hidden = false;
+  currentRegions = [];
+  overlayOrig?.destroy();
+  overlaySan?.destroy();
+  overlayOrig = null;
+  overlaySan = null;
+  hideAudit();
+  setNarrator(null);
 }
 
 function renderPrivacy(m: Extract<ExtMessage, { type: "privacy" }>) {
@@ -505,6 +727,13 @@ function renderPrivacy(m: Extract<ExtMessage, { type: "privacy" }>) {
   pvDetectedEl.classList.toggle("blocked", m.gate === "block");
   if (pvBoundaryEl) pvBoundaryEl.textContent = "raw capture never leaves";
   setGateVerdict(m.gate);
+
+  // Forensic exhibit: archive this step's regions + verdict, refresh the
+  // interactive map on both columns, and add a filmstrip frame.
+  currentRegions = Array.isArray(m.redactions) ? m.redactions : [];
+  lastVer = m.gate;
+  applyRegionOverlays();
+  pushFilmFrame();
 
   // Privacy summary follows the run so History can render it.
   if (current) {
@@ -541,7 +770,8 @@ function renderPrivacy(m: Extract<ExtMessage, { type: "privacy" }>) {
       if (n) parts.push(`${n} ${lbl}`);
     }
     const li = document.createElement("li");
-    li.innerHTML = `<span class="pv-tag">perception</span><span class="pv-ok" title="local ViT${p.escalate ? `, escalated ${p.escalate} image region(s)` : ""}" style="font-size:0.78em;max-width:55%;word-break:break-word">${parts.join(", ") || "—"}</span>`;
+    const backend = p.backend === "webgpu" ? " ⚡ WebGPU" : " wasm";
+    li.innerHTML = `<span class="pv-tag">perception</span><span class="pv-ok" title="local ViT ${backend}${p.escalate ? `, escalated ${p.escalate} image region(s)` : ""}" style="font-size:0.78em;max-width:55%;word-break:break-word">${parts.join(", ") || "—"} (${p.ms}ms)${backend}</span>`;
     pvListEl.appendChild(li);
     hasRows = true;
     if (current) {
@@ -684,6 +914,68 @@ function endThink() {
   thinkStatusEl.textContent = "reasoned";
 }
 
+// ── Needs your input (human-in-the-loop) ────────────────────────────────
+
+function showAsk(m: Extract<ExtMessage, { type: "ask-user" }>) {
+  askCardEl.hidden = false;
+  askKindEl.textContent = m.kind === "confirm" ? "safety check" : "ask the agent";
+  askQuestionEl.textContent = m.question;
+  askOptionsEl.innerHTML = "";
+  for (const opt of m.options) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = `ask-opt${opt.toLowerCase() === "cancel" ? " opt-danger" : ""}`;
+    b.textContent = opt;
+    b.addEventListener("click", () => sendAskAnswer(opt));
+    askOptionsEl.appendChild(b);
+  }
+  askInputEl.value = "";
+  askInputEl.disabled = false;
+  askGoEl.disabled = false;
+  askSkipEl.disabled = false;
+  askInputEl.focus();
+}
+
+function hideAsk() {
+  askCardEl.hidden = true;
+}
+
+function sendAskAnswer(answer: string) {
+  askInputEl.disabled = true;
+  askGoEl.disabled = true;
+  askSkipEl.disabled = true;
+  hideAsk();
+  addLocalLog("info", `👤 You answered: ${answer}`);
+  void browser.runtime
+    .sendMessage({ type: "ask-answer", answer } satisfies ExtMessage)
+    .catch(() => {});
+}
+
+function sendAskSkip() {
+  askInputEl.disabled = true;
+  askGoEl.disabled = true;
+  askSkipEl.disabled = true;
+  hideAsk();
+  addLocalLog("info", "⏭ You skipped the question.");
+  void browser.runtime.sendMessage({ type: "ask-skip" } satisfies ExtMessage).catch(() => {});
+}
+
+askGoEl.addEventListener("click", () => {
+  const v = askInputEl.value.trim();
+  if (v) sendAskAnswer(v);
+});
+askInputEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    const v = askInputEl.value.trim();
+    if (v) sendAskAnswer(v);
+  }
+});
+askSkipEl.addEventListener("click", sendAskSkip);
+
+function clearAsk() {
+  hideAsk();
+}
+
 // ── Terminal-state detection on background log lines
 function maybeFinalize(level: Level, text: string): boolean {
   if (!current) return false;
@@ -732,6 +1024,7 @@ browser.runtime.onMessage.addListener((raw: unknown) => {
     }
   }
   if (msg?.type === "loop-status") {
+    trackStep(msg);
     setLoopUI(msg.running, msg.step, msg.maxSteps);
   }
   if (msg?.type === "think-start") startThink();
@@ -741,6 +1034,7 @@ browser.runtime.onMessage.addListener((raw: unknown) => {
   if (msg?.type === "decision") renderDecision(msg);
   if (msg?.type === "decision-result") renderDecisionResult(msg.result);
   if (msg?.type === "capture-preview") showPreview(msg);
+  if (msg?.type === "ask-user") showAsk(msg);
 });
 
 // ── Controls wiring ───────────────────────────────────────────────────────
@@ -749,6 +1043,105 @@ runBtn.addEventListener("click", runStep);
 loopBtn.addEventListener("click", () => (loopRunning ? stopLoop() : startLoop()));
 
 clearHistEl.addEventListener("click", clearHistory);
+
+// ── Forensic exhibit: printable privacy report ────────────────────────────
+
+function collectReceiptData(s: StoredSession | null): ReceiptData | null {
+  if (!s) return null;
+  const frames = s.frames ?? [];
+  if (frames.length === 0) return null;
+
+  const byType = new Map<string, number>();
+  const seenTokens = new Set<string>();
+  const tokens: { masked: string; token: string }[] = [];
+  let protectedTotal = 0;
+  for (const f of frames) {
+    protectedTotal += f.regions.length;
+    for (const r of f.regions) {
+      const k = r.source === "vision" ? "image" : r.type;
+      byType.set(k, (byType.get(k) ?? 0) + 1);
+      if (r.token && r.masked && !seenTokens.has(r.token)) {
+        seenTokens.add(r.token);
+        tokens.push({ masked: r.masked, token: r.token });
+      }
+    }
+  }
+
+  const privacy = s.privacy;
+  const perc = privacy?.perceptionSummary;
+  return {
+    task: s.task,
+    kind: s.kind,
+    started: s.started,
+    ended: s.ended ?? s.started,
+    status: s.privacy ? (privacy?.pass ? "completed · gate verified" : s.status) : s.status,
+    steps: frames.map((f) => ({ step: f.step, verdict: f.verdict, protected: f.regions.length })),
+    protectedTotal,
+    leaked: privacy?.leaked ?? 0,
+    gate: privacy ? (privacy.pass ? "PASS" : "BLOCKED") : "PASS",
+    perception: perc?.tiles ? `${perc.tiles} (${perc.ms}ms)` : undefined,
+    byType: [...byType.entries()].map(([type, count]) => ({ type, count })),
+    tokens,
+  };
+}
+
+function tryPrintReport(): boolean {
+  const src = current ?? sessions[0] ?? null;
+  const data = collectReceiptData(src);
+  if (!data) return false;
+  printRootEl.innerHTML = "";
+  printRootEl.appendChild(buildReceipt(data));
+  window.print();
+  return true;
+}
+
+reportBtnEl.addEventListener("click", () => {
+  if (!tryPrintReport()) {
+    addLocalLog("info", "Nothing to report yet — run the agent first.");
+  }
+});
+
+// Ctrl/Cmd+P inside the panel prints the privacy report (not the web UI).
+document.addEventListener("keydown", (ev) => {
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "p") {
+    if (tryPrintReport()) ev.preventDefault();
+  }
+});
+
+// Dismiss the audit popover on outside click / Escape; scroll moves it away.
+document.addEventListener("click", (ev) => {
+  if (!auditVisible) return;
+  if (!auditPopEl.contains(ev.target as Node)) hideAudit();
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && auditVisible) hideAudit();
+});
+// The popover is fixed on the viewport — once the panel scrolls it drifts off
+// its anchor, so dismiss it on any (captured) scroll.
+document.addEventListener("scroll", hideAudit, { capture: true, passive: true });
+
+// Drag-to-scroll the filmstrip rail (without fighting frame selection).
+filmstripEl.addEventListener("pointerdown", (ev) => {
+  filmDragLock = false;
+  filmstripEl.setPointerCapture?.(ev.pointerId);
+});
+filmstripEl.addEventListener("pointermove", (ev) => {
+  if (!ev.buttons || ev.movementX === 0) return;
+  if (Math.abs(ev.movementX) > 4) filmDragLock = true;
+  if (filmDragLock) filmstripEl.scrollLeft -= ev.movementX;
+});
+// Arrow-key navigation across frames (a11y).
+filmstripEl.addEventListener("keydown", (ev) => {
+  if (filmFrames.length === 0) return;
+  let next = filmIndex;
+  if (ev.key === "ArrowRight") next += 1;
+  else if (ev.key === "ArrowLeft") next -= 1;
+  else return;
+  ev.preventDefault();
+  next = Math.max(0, Math.min(filmFrames.length - 1, next));
+  const frame = filmFrames[next];
+  if (frame) onFilmSelect(frame);
+});
 
 // Minimal live-activity card control (keeps panel compact when driving from
 // the page spotlight with Alt+K).
@@ -797,7 +1190,10 @@ debugEl.addEventListener("change", () => {
   browser.storage.local.set({ [STORAGE_DEBUG]: debugEl.checked }).catch(() => {});
   applyTechMode(debugEl.checked);
 });
-browser.storage.local.get([STORAGE_MAX_STEPS, STORAGE_SHOT_QUALITY, STORAGE_DEBUG]).then((r) => {
+confirmRiskyEl.addEventListener("change", () => {
+  browser.storage.local.set({ [STORAGE_CONFIRM]: confirmRiskyEl.checked }).catch(() => {});
+});
+browser.storage.local.get([STORAGE_MAX_STEPS, STORAGE_SHOT_QUALITY, STORAGE_DEBUG, STORAGE_CONFIRM]).then((r) => {
   if (typeof r[STORAGE_MAX_STEPS] === "number") maxStepsEl.value = String(r[STORAGE_MAX_STEPS]);
   if (typeof r[STORAGE_SHOT_QUALITY] === "number") {
     shotQualityEl.value = String(r[STORAGE_SHOT_QUALITY]);
@@ -805,6 +1201,7 @@ browser.storage.local.get([STORAGE_MAX_STEPS, STORAGE_SHOT_QUALITY, STORAGE_DEBU
       shotQualityEl.value = "50";
     }
   }
+  confirmRiskyEl.checked = r[STORAGE_CONFIRM] !== false;
   const wide = (debugEl.checked = r[STORAGE_DEBUG] === true);
   if (localStorage.getItem(LS_SHOW_TECH) === "1") applyTechMode(true);
   else applyTechMode(wide);
@@ -896,37 +1293,67 @@ function modelLabel(m: string): string {
   return m;
 }
 
-// Model selector — persisted in shared storage (read by background for each
-// act request); populate from the server's /models list with a default option.
-fetch(`${SERVER_URL}/models`)
-  .then((r) => r.json())
-  .then((j: { models?: string[] }) => {
+// Server connection: populate the model list and log health from the endpoint
+// configured in Advanced → Server URL. Re-run whenever that URL changes.
+async function refreshServerConn() {
+  const base = await getServerUrl();
+
+  // Rebuild the model dropdown (keep the saved choice when still offered).
+  try {
+    const j = (await (await fetch(`${base}/models`)).json()) as { models?: string[] };
     const models = j.models ?? [];
-    if (models.length === 0) return;
-    for (const m of models) {
-      const opt = document.createElement("option");
-      opt.value = m;
-      opt.textContent = modelLabel(m);
-      modelEl.appendChild(opt);
-    }
-    browser.storage.local.get(STORAGE_MODEL).then((r) => {
-      const saved = r[STORAGE_MODEL];
+    if (models.length > 0) {
+      const saved = (await browser.storage.local.get(STORAGE_MODEL))[STORAGE_MODEL];
+      modelEl.innerHTML = "";
+      for (const m of models) {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.textContent = modelLabel(m);
+        modelEl.appendChild(opt);
+      }
       if (typeof saved === "string" && models.includes(saved)) {
         modelEl.value = saved;
       } else {
-        modelEl.value = models.includes("qwen2.5vl:3b")
-          ? "qwen2.5vl:3b"
-          : models[0];
+        modelEl.value = models.includes("qwen2.5vl:3b") ? "qwen2.5vl:3b" : models[0];
         browser.storage.local.set({ [STORAGE_MODEL]: modelEl.value }).catch(() => {});
       }
-    });
-  })
-  .catch(() => {});
+    }
+  } catch {
+    /* server not up yet — the health log below reports it */
+  }
+
+  try {
+    const j = (await (await fetch(`${base}/health`)).json()) as { status: string };
+    addLocalLog("success", `Server up at ${base} (${j.status})`);
+  } catch {
+    addLocalLog("error", `Server unreachable at ${base} — start it: uvicorn app:app --reload`);
+  }
+}
 modelEl.addEventListener("change", () => {
   browser.storage.local.set({ [STORAGE_MODEL]: modelEl.value }).catch(() => {});
 });
 
-fetch(`${SERVER_URL}/health`)
-  .then((r) => r.json())
-  .then((j: { status: string }) => addLocalLog("success", `Server up at ${SERVER_URL} (${j.status})`))
-  .catch(() => addLocalLog("error", `Server unreachable — start it: uvicorn app:app --reload`));
+// Server URL field — persisted under `sihServerUrl` (read by the background for
+// every step). Reconnect immediately after a valid change.
+serverUrlEl.addEventListener("change", () => {
+  let value = serverUrlEl.value.trim();
+  if (value) {
+    try {
+      value = normalizeServerUrl(value);
+    } catch {
+      addLocalLog("error", `Invalid server URL: ${serverUrlEl.value}`);
+      return;
+    }
+  }
+  serverUrlEl.value = value;
+  browser.storage.local.set({ [STORAGE_SERVER_URL]: value }).catch(() => {});
+  void refreshServerConn();
+});
+browser.storage.local
+  .get(STORAGE_SERVER_URL)
+  .then((r) => {
+    const v = r[STORAGE_SERVER_URL];
+    if (typeof v === "string" && v) serverUrlEl.value = v;
+  })
+  .catch(() => {});
+void refreshServerConn();

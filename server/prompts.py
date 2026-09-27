@@ -53,6 +53,10 @@ ACTION OBJECTS (use the fields the type needs; omit the rest):
 {"type": "wait",     "ms": 800}
 {"type": "extract",  "text": "the error message"}
 {"type": "done",     "answer": "optional final answer"}
+{"type": "ask",      "question": "short question to the user", "options": ["Option A", "Option B"]}
+
+ASKING THE USER — HUMAN-IN-THE-LOOP DECISIONS:
+You may pause and ask the user a realtime question when you genuinely need a decision BEFORE acting: the task is ambiguous, multiple valid targets/approaches exist, the user's preference matters, or a step is destructive/irreversible. Ask only when driving on without input risks the wrong result. "question" <= 10 words, "options" <= 3 short words each (omit options for a free-text answer). Never set "done" with an "ask" — the user's answer returns to you as context and you continue from there.
 
 THE NUMBERED TAGS: the DOM snapshot lists elements like:
   [7] <input> role=textbox text="Search" label="search"
@@ -99,6 +103,9 @@ Actions (use only the fields a type needs):
 {ms} {"type":"wait","ms":800}
 {text} {"type":"extract","text":"the error message"}
 {answer} {"type":"done","answer":"optional final answer"}
+{question,options} {"type":"ask","question":"short question","options":["A","B"]}
+
+ASKING THE USER — HUMAN-IN-THE-LOOP: pause with an "ask" action when you genuinely need a user decision before acting (ambiguous task, multiple valid options, user preference, or a destructive/irreversible step). question <= 10 words, options <= 3 short words each (omit options for free text). Never set "done" with an "ask"; the answer returns as context and you continue.
 
 DOM snapshot lists elements as "[7] <input> text=\"...\" label=\"...\"" and the same "7" is drawn on the screenshot. TARGET RULE: "target" is ALWAYS the plain integer id from the [N] list — never a word, never the task text, never "[7]".
 

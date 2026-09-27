@@ -7,6 +7,7 @@ import { spotlight } from "@/core/spotlight";
 import { orb } from "@/core/orb";
 import { lens } from "@/core/privacy-lens";
 import { aiView } from "@/core/ai-view";
+import { askBanner } from "@/core/ask-banner";
 import type { AgentAction, AgentStage } from "@/core/protocol";
 
 const STORAGE_CURSOR = "sihCursorEnabled";
@@ -66,6 +67,7 @@ export default defineContentScript({
         orb.setVisible(false);
         lens.setVisible(false);
         aiView.setVisible(false);
+        askBanner.setVisible(false);
         return Promise.resolve(true);
       }
       if (msg?.type === "cursor-show") {
@@ -73,6 +75,7 @@ export default defineContentScript({
         orb.setVisible(true);
         lens.setVisible(true);
         aiView.setVisible(true);
+        askBanner.setVisible(true);
         return Promise.resolve(true);
       }
       if (msg?.type === "cursor-toggle" && msg.enabled !== undefined) {
@@ -100,11 +103,30 @@ export default defineContentScript({
       if (msg?.type === "privacy") {
         orb.setGate((msg as { gate?: "pass" | "block" | "skip" }).gate ?? "skip");
       }
+      if (msg?.type === "ask-user") {
+        const as = msg as {
+          question?: string;
+          options?: string[];
+          kind?: "decide" | "confirm";
+          viaPanel?: boolean;
+        };
+        // Runtime broadcasts destined for the side panel only — the banner gets
+        // its own targeted tabs.sendMessage, so skip these here.
+        if (as.viaPanel) return;
+        if (as.question) {
+          askBanner.setVisible(true);
+          askBanner.show(as.question, as.options ?? [], as.kind ?? "decide");
+        }
+      }
+      if (msg?.type === "ask-hide") {
+        askBanner.hide();
+      }
     });
 
     // Survivability overlays: the orb lives from page load (it's how the agent
     // is re-opened once the side panel is closed).
     orb.ensure();
+    askBanner.ensure();
 
     // Restore persisted preferences from shared storage. The orb defaults to
     // ON (unlike the cursor it's the only page-side control when the panel

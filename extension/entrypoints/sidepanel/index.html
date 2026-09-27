@@ -76,9 +76,18 @@
           </label>
 
           <label class="toggle-row adv-toggle-row">
+            <input type="checkbox" id="confirmRisky" checked />
+            <span><b>Confirm risky actions</b><small>Ask before finish (done) / navigate-away</small></span>
+          </label>
+
+          <label class="toggle-row adv-toggle-row">
             <input type="checkbox" id="debug" />
             <span><b>Debug logging</b><small>Show technical logs by default</small></span>
           </label>
+
+          <label class="field-label" for="serverUrl">Server URL</label>
+          <input id="serverUrl" type="url" spellcheck="false" placeholder="http://127.0.0.1:8000"
+            class="num-input" />
         </div>
       </details>
     </section>
@@ -125,6 +134,8 @@
       </div>
 
       <ul id="pvList" class="pv-list"></ul>
+
+      <blockquote id="narrator" class="narrator" hidden></blockquote>
     </section>
 
     <!-- ── What the AI sees (before/after) ─────────────────────── -->
@@ -136,12 +147,12 @@
       <div class="preview-cols">
         <figure class="prev-col">
           <figcaption>YOUR SCREEN</figcaption>
-          <img id="shotOriginal" alt="original capture" hidden />
+          <span class="img-stage"><img id="shotOriginal" alt="original capture" hidden /></span>
           <p class="hint prev-empty" id="noshotOriginal">Waiting for a capture…</p>
         </figure>
         <figure class="prev-col">
           <figcaption>WHAT THE AI SEES</figcaption>
-          <img id="shot" alt="sanitized capture" hidden />
+          <span class="img-stage"><img id="shot" alt="sanitized capture" hidden /></span>
           <p class="hint prev-empty" id="noshot">No capture yet.</p>
         </figure>
       </div>
@@ -150,6 +161,8 @@
         <span><b id="pvRaw2">0</b> raw values sent</span>
         <span id="pvPayload"><b>–</b> payload size</span>
       </div>
+      <p class="film-hint" id="filmHint" hidden>Tap any highlighted region to inspect why it was redacted.</p>
+      <div class="filmstrip" id="filmstrip"></div>
     </section>
 
     <!-- ── Agent decision ──────────────────────────────────────── -->
@@ -165,6 +178,21 @@
         <div class="dec-row"><span class="dec-key">Target</span><span id="decTarget" class="dec-val">—</span></div>
         <div class="dec-row"><span class="dec-key">Action</span><span id="decAction" class="dec-val"></span></div>
         <div class="dec-row"><span class="dec-key">Result</span><span id="decResult" class="dec-val">pending…</span></div>
+      </div>
+    </section>
+
+    <!-- ── Needs your input (human-in-the-loop) ──────────────── -->
+    <section class="card ask-card" id="askCard" hidden>
+      <div class="card-head">
+        <h2>🤝 Needs your input</h2>
+        <span id="askKind" class="muted">decide</span>
+      </div>
+      <p id="askQuestion" class="ask-q">—</p>
+      <div id="askOptions" class="ask-opts"></div>
+      <div class="ask-row">
+        <input id="askInput" type="text" placeholder="type an answer…" spellcheck="false" />
+        <button id="askGo" class="primary-btn">Answer</button>
+        <button id="askSkip" class="ghost-btn">Skip</button>
       </div>
     </section>
 
@@ -187,9 +215,16 @@
     <section class="history">
       <div class="card-head history-head">
         <h2>History</h2>
-        <button id="clearHist" class="ghost-btn ghost-sm">Clear</button>
+        <div class="head-actions">
+          <button id="report" class="ghost-btn ghost-sm" title="Print the privacy report for this run">🖨 Privacy report</button>
+          <button id="clearHist" class="ghost-btn ghost-sm">Clear</button>
+        </div>
       </div>
       <div id="histList"></div>
     </section>
+
+    <!-- ── Forensic exhibit hosts ──────────────────────────────── -->
+    <div id="auditPop" class="audit-pop" hidden></div>
+    <div id="printRoot" class="print-root" hidden></div>
   </body>
 </html>

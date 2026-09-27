@@ -2,7 +2,7 @@
 // shadow-DOM host (like the virtual cursor) so Alt+K from any page pops a
 // real overlay in the current tab — independent of the side panel.
 
-import { SERVER_URL } from "./config";
+import { getServerUrl } from "./config";
 import { orb } from "./orb";
 import { lens } from "./privacy-lens";
 import { aiView } from "./ai-view";
@@ -324,8 +324,9 @@ export class SpotlightOverlay {
         hint: "health",
         keywords: "server health vlm status ping check diagnostics",
         run: async () => {
+          const base = await getServerUrl();
           try {
-            const r = await fetch(`${SERVER_URL}/health`);
+            const r = await fetch(`${base}/health`);
             const j = (await r.json()) as {
               status: string;
               vlm_connected: boolean;
@@ -336,7 +337,7 @@ export class SpotlightOverlay {
               false,
             );
           } catch {
-            this.toast(`Server unreachable at ${SERVER_URL}`, true);
+            this.toast(`Server unreachable at ${base}`, true);
           }
         },
       },

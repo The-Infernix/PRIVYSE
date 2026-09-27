@@ -18,7 +18,11 @@
 //
 // Weights are bundled under public/models/perception/ (NO CDN at runtime):
 //   model_quantized.onnx            6.3 MB  MobileViT-Small q8 (ImageNet-1k)
-//   ort-wasm-simd-threaded.wasm   ~13.3 MB  onnxruntime-web WASM (1 thread)
+//   ort-wasm-simd-threaded.jsep.wasm  26.5 MB  onnxruntime-web JSEP (dual) runtime
+//        = WebGPU EP + WASM EP in one binary. Used for BOTH providers so a
+//        WebGPU-capable machine (navigator.gpu) runs the ViT on the GPU while
+//        every other machine transparently drops to the WASM EP — same model,
+//        same weights, no fallback that re-downloads anything. numThreads=1.
 // Preprocessing mirrors MobileViTFeatureExtractor: resize shortest edge → 288,
 // center-crop 256, rescale 1/255, normalize to [-1,1], flip RGB → BGR.
 
@@ -65,6 +69,8 @@ export interface ScreenPerception {
   /** Pipeline ms for the ViT passes. */
   ms: number;
   modelMB: number;
+  /** Execution provider running the ViT session (WebGPU EP when available). */
+  backend?: PerceptionBackend;
   /** True when this map was served from the same-page pixel cache, not a fresh
    * inference (ms is reported as 0 for a cached hit). */
   cached?: boolean;
@@ -145,24 +151,43 @@ function labelsUrl(): string {
   return `${modelBase}perception/imagenet-1k-id2label.json`;
 }
 
+// -- WebGPU / WASM backend selection ------------------------------------------
+
+export type PerceptionBackend = "webgpu" | "wasm" | "none";
+
+/** True when the WebGPU adapter is exposed (Chrome 113+, Firefox 141+). */
+function webgpuAvailable(): boolean {
+  return (
+    typeof navigator !== "undefined" &&
+    typeof (navigator as { gpu?: unknown }).gpu !== "undefined"
+  );
+}
+
 // -- lazy inference session ---------------------------------------------------
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 let ortMod: any = null;
 let session: any = null;
 let sessionInit: Promise<any> | null = null;
+let activeBackend: PerceptionBackend = "none";
+
+/** The execution provider actually in control of the ViT session. */
+export function getPerceptionBackend(): PerceptionBackend {
+  return activeBackend;
+}
 
 async function loadOrt(): Promise<any> {
   if (ortMod) return ortMod;
   const ort = await import(/* @vite-ignore */ "onnxruntime-web");
   if (modelBase) {
-    // Weights are BUNDLED (no CDN). Point the loader at the plain
-    // SIMD-threaded glue + binary (13.3 MB) instead of the default
-    // JSEP/WebGPU variant (26.5 MB). numThreads=1 keeps us on the
-    // main thread — no SharedArrayBuffer / cross-origin isolation needed.
+    // Weights are BUNDLED (no CDN). The JSEP binary is a DUAL runtime — it
+    // serves the WebGPU EP AND the WASM EP — so it is the single bundled ORT
+    // runtime regardless of which backend the session ends up on. numThreads=1
+    // keeps us on the main thread (no SharedArrayBuffer / cross-origin
+    // isolation needed).
     ort.env.wasm.wasmPaths = {
-      mjs: `${modelBase}ort/ort-wasm-simd-threaded.mjs`,
-      wasm: `${modelBase}ort/ort-wasm-simd-threaded.wasm`,
+      mjs: `${modelBase}ort/ort-wasm-simd-threaded.jsep.mjs`,
+      wasm: `${modelBase}ort/ort-wasm-simd-threaded.jsep.wasm`,
     } as unknown as string;
     ort.env.wasm.numThreads = 1;
     ort.env.wasm.proxy = false;
@@ -181,6 +206,10 @@ async function detectOrtSessionType(): Promise<"ort" | "none"> {
   }
 }
 
+async function createSession(ort: any, model: ArrayBuffer, eps: string[]): Promise<any> {
+  return await ort.InferenceSession.create(model, { executionProviders: eps });
+}
+
 async function getSession(): Promise<any | null> {
   if (session) return session;
   if (sessionInit) return sessionInit;
@@ -189,9 +218,22 @@ async function getSession(): Promise<any | null> {
     const res = await fetch(modelUrl());
     if (!res.ok) throw new Error(`perception: model fetch failed (${res.status})`);
     const ort = await loadOrt();
-    session = await ort.InferenceSession.create(await res.arrayBuffer(), {
-      executionProviders: ["wasm"],
-    });
+    const model = await res.arrayBuffer();
+    // WebGPU-first with automatic per-kernel + whole-session fallback. When the
+    // adapter is present we ask ORT for [webgpu, wasm]; any op the WebGPU EP
+    // lacks falls through to WASM, and if EP init itself fails the create is
+    // retried on WASM only. Every other machine skips straight to WASM.
+    if (webgpuAvailable()) {
+      try {
+        session = await createSession(ort, model, ["webgpu", "wasm"]);
+        activeBackend = "webgpu";
+        return session;
+      } catch {
+        /* EP init failure — retry on WASM (same JSEP runtime) */
+      }
+    }
+    session = await createSession(ort, model, ["wasm"]);
+    activeBackend = "wasm";
     return session;
   })().catch((e) => {
     sessionInit = null;
@@ -435,6 +477,7 @@ export async function perceiveScreen(input: PerceiveInput): Promise<ScreenPercep
     decisions: { escalate: [], ocrPriority: [], captchaLike: [] },
     ms: 0,
     modelMB: 0,
+    backend: "none",
     cached: false,
   };
 
@@ -467,6 +510,7 @@ export async function perceiveScreen(input: PerceiveInput): Promise<ScreenPercep
       getSession(),
     ]);
     base.enabled = true;
+    base.backend = getPerceptionBackend();
 
     const canvas = document.createElement("canvas");
     canvas.width = img.naturalWidth;
@@ -548,7 +592,7 @@ export async function getPerceptionModelMB(): Promise<number> {
     }
     return bytes / (1024 * 1024);
   } catch {
-    return 6.3 + 13.3;
+    return 6.3 + 26.5;
   }
 }
 

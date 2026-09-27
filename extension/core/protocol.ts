@@ -2,7 +2,7 @@
 // The same action shapes are used by: extension background, content script,
 // and the FastAPI server. Any change must bump PROTOCOL_VERSION.
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** Live agent phase, surfaced as the header status + pipeline strip. */
 export type AgentStage =
@@ -26,7 +26,12 @@ export type AgentAction =
   | { type: "navigate"; url: string }
   | { type: "wait"; ms: number }
   | { type: "extract"; text: string }
-  | { type: "done"; answer?: string };
+  | { type: "done"; answer?: string }
+  // Human-in-the-loop: the VLM pauses the loop and asks the user a realtime
+  // question (decision, validation, preference). NEVER dispatched to the
+  // content script — the background intercepts it, surfaces it in the side
+  // panel + page banner, and feeds the answer back into the VLM context.
+  | { type: "ask"; question: string; options?: string[] };
 
 // ---------------------------------------------------------------------------
 // On-device screen perception (PS §1: "local ViT reads the screen")
@@ -94,6 +99,24 @@ export interface DomElement {
   bbox: [number, number, number, number];
   /** Present only for input elements; sensitive values are tokenized. */
   value?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Redaction log view — device-local audit metadata for the side-panel
+// "Forensic Exhibit". Mirrors core/sanitizer.ts RedactionLogEntry but carries
+// only the masked form (never the raw value) and stays inside the panel.
+// ---------------------------------------------------------------------------
+
+export interface RedactionView {
+  type: string;
+  tier: "A" | "B" | "C";
+  token?: string;
+  /** [x, y, w, h] in captured-screenshot pixel space. */
+  bbox: [number, number, number, number];
+  /** Which detector produced it: dom · text · vision (face/OCR) · perception. */
+  source: "dom" | "text" | "vision" | "perception";
+  /** Partially-masked display of the raw value (ON-DEVICE only). */
+  masked?: string;
 }
 
 export interface HistoryStep {
@@ -205,12 +228,16 @@ export type ExtMessage =
       byType: { type: string; count: number }[];
       /** Stable-token map: masked raw value → [TOKEN_n] (device-local, never sent). */
       tokens: { type: string; masked: string; token: string }[];
+      /** Per-region audit log for the interactive exhibit (device-local only). */
+      redactions: RedactionView[];
       /** On-device ViT screen-perception summary (tile tags + escalations). */
       perception?: {
         enabled: boolean;
         ms: number;
         summary: Partial<Record<PerceptionTag, number>>;
         escalate: number;
+        /** Execution provider running the ViT ("webgpu" when the GPU was used). */
+        backend?: "webgpu" | "wasm" | "none";
       };
     }
   // Structured decision trace (index-card version of the raw reasoning)
@@ -233,7 +260,28 @@ export type ExtMessage =
       sanitized: string;
       payloadKb: number;
       protected: number;
-    };
+    }
+  // Human-in-the-loop: the agent paused the loop to ask the user a realtime
+  // question. The side panel card AND the page banner both consume this.
+  | {
+      type: "ask-user";
+      question: string;
+      options: string[];
+      /** "decide" = VLM-driven question, "confirm" = safety gate (Proceed/Cancel). */
+      kind: "decide" | "confirm";
+      /** True when sent as a runtime broadcast intended ONLY for the side panel;
+       * content scripts must ignore these (the banner gets its own targeted
+       * tabs.sendMessage so it never appears on every tab). */
+      viaPanel?: boolean;
+    }
+  // User answered the pending ask (panel/banner → background).
+  | { type: "ask-answer"; answer: string }
+  // User skipped the pending ask (panel/banner → background).
+  | { type: "ask-skip" }
+  // Background → content: the pending question was resolved elsewhere (user
+  // answered in the side panel, stopped the loop, or the safety-net timer
+  // fired). Dismisses the in-page banner if it is still showing.
+  | { type: "ask-hide" };
 
 /** background → content script */
 export interface ExecuteActionMsg {

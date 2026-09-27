@@ -1,0 +1,9 @@
+# Build context is this folder (server/). Keep the venv, caches, and logs out.
+.venv/
+__pycache__/
+*.pyc
+*.log
+.env
+Dockerfile
+docker-compose.yml
+.dockerignore

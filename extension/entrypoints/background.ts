@@ -2,9 +2,14 @@
 // Runs the capture → serialize → sanitize → /act → execute loop
 // with ≥700 ms throttle (captureVisibleTab is rate-limited to ~2/sec in Chrome).
 
-import { SERVER_URL } from "@/core/config";
+import { getServerUrl } from "@/core/config";
 import { sanitizeForUpload, type VisionFindings } from "@/core/sanitizer";
 import { assertNoLeaks } from "@/core/zero-leak";
+import {
+  initVisionHost,
+  handleVisionHostRequest,
+  type VisionHostRequest,
+} from "@/core/vision-host";
 import { isSensitivePage } from "@/core/sensitive-pages";
 import { resetVerifiedTargets, getVerifiedTargets, resetClickedTypeables, isKnownTypeable, describeKnownTypeable } from "@/core/executor";
 import type {
@@ -27,11 +32,25 @@ const MAX_CONSECUTIVE_FAILURES = 2;
 const STUCK_REPEAT = 3; // same action repeated N times → force a rethink
 const MAX_CONSECUTIVE_BLOCKED = 3; // N blocked steps in a row → force a rethink
 const MAX_RETHINK_ATTEMPTS = 3; // give up only if rethink keeps failing to change the plan
+
+// A content-script listener (or its message channel) torn down mid-flight —
+// Chrome's signature for sendMessage crossing a navigating/reloading document.
+// These are RACES, not action failures: right after a navigate/reload the page
+// can still be settling, so we retry instead of poisoning lesson memory.
+const LISTENER_REJECT = /listener['’]s promise rejected|message channel closed|Receiving end does not exist|Could not establish connection/i;
+/** Cap on redaction records mirrored to the side-panel exhibit (per step). */
+const REDACTIONS_PANEL_CAP = 60;
 const DEFAULT_MODEL = "qwen2.5vl:3b";
 const STORAGE_MODEL = "sihModel";
 const STORAGE_LESSONS = "sihLessons";
 const STORAGE_MAX_STEPS = "sihMaxSteps";
 const STORAGE_SHOT_QUALITY = "sihShotQuality";
+const STORAGE_CONFIRM = "sihConfirmRisky";
+
+// How long a human-in-the-loop question stays open before the loop auto-skips.
+// Short enough that an unattended run never looks frozen; long enough that a
+// watching user can answer. Answering in the panel/banner resolves instantly.
+const ASK_TIMEOUT_MS = 25000;
 const DEFAULT_MAX_STEPS = 50;
 const DEFAULT_SHOT_QUALITY = 50;
 const RESTRICTED_URL_RE =
@@ -82,13 +101,28 @@ interface ChromeOffscreenApi {
       reasons: string[];
       justification: string;
     }) => Promise<void>;
+    closeDocument?: () => Promise<void>;
   };
 }
 const chromeApi = (globalThis as unknown as { chrome?: ChromeOffscreenApi }).chrome;
 
 async function ensureVisionHost(): Promise<void> {
   if (!chromeApi?.offscreen) {
-    throw new Error("chrome.offscreen unavailable (Firefox needs the sidebar as vision host)");
+    // Firefox MV2: no offscreen document exists — the background page is a real
+    // DOM page and runs the shared vision host IN-PROCESS (see visionHostRequest).
+    return;
+  }
+  // A wedged offscreen doc (created but stopped answering — e.g. the MediaPipe
+  // WASM thread pool deadlocked the page) is worse than none: every request
+  // would burn its full timeout against the corpse. Recreate the document once
+  // per recovery attempt so a dead host is replaced instead of re-used.
+  if (visionHostTimedOut && chromeApi.offscreen.closeDocument) {
+    try {
+      await chromeApi.offscreen.closeDocument();
+    } catch {
+      /* already closed — fine */
+    }
+    visionHostTimedOut = false;
   }
   if (chromeApi.runtime.getContexts) {
     const ctx = await chromeApi.runtime.getContexts({ contextTypes: ["OFFSCREEN_DOCUMENT"] });
@@ -102,7 +136,29 @@ async function ensureVisionHost(): Promise<void> {
   });
 }
 
+// Firefox MV2 host: the background page itself computes the vision passes, so
+// requests never cross the message bus. Model base resolution needs getURL(),
+// which is only available in a live extension context — set it lazily on first
+// request (the offscreen doc does the equivalent in its own entrypoint).
+let localVisionHostReady = false;
+function ensureLocalVisionHost(): void {
+  if (localVisionHostReady) return;
+  initVisionHost(
+    (p) => (browser.runtime.getURL as (path: string) => string)(p),
+  );
+  localVisionHostReady = true;
+}
+
 async function visionHostRequest<T>(msg: Record<string, unknown>, timeoutMs = 90000): Promise<T> {
+  if (!chromeApi?.offscreen) {
+    // Firefox: compute in-process. A watchdog still guards a hung model load.
+    ensureLocalVisionHost();
+    return (await withTimeout(
+      handleVisionHostRequest({ ...msg, requestId: ++visionReqSeq } as unknown as VisionHostRequest),
+      timeoutMs,
+      "vision host timeout",
+    )) as T;
+  }
   await ensureVisionHost();
   const requestId = ++visionReqSeq;
   const expected = `${msg.type}-result`;
@@ -111,15 +167,35 @@ async function visionHostRequest<T>(msg: Record<string, unknown>, timeoutMs = 90
       const m = raw as { type?: string; requestId?: number; error?: string };
       if (m?.type !== expected || m?.requestId !== requestId) return;
       cleanup();
-      if (m.error) reject(new Error(m.error));
-      else resolve(m as T);
+      if (m.error) {
+        visionHostTimedOut = false;
+        reject(new Error(m.error));
+      } else {
+        visionHostTimedOut = false;
+        resolve(m as T);
+      }
     };
     const timer = setTimeout(() => {
       cleanup();
-      reject(new Error("vision host timeout"));
+      // Host existing-but-silent: mark it so the NEXT ensureVisionHost() call
+      // recreates the document instead of trusting a wedged corpse.
+      visionHostTimedOut = true;
+      reject(new Error(`vision host (${msg.type}) did not answer within ${timeoutMs}ms`));
     }, timeoutMs);
+    // MV3 keep-alive gotcha: plain setTimeout/setInterval are NOT counted as
+    // service-worker activity, so after ~30s of idle await Chrome suspends the
+    // worker — killing this pending promise (and with it the whole step) while
+    // a cold model load (60-90s) is still running. Poke a real extension API
+    // on a 12s cadence until the request settles to hold the worker open.
+    const keepAliveTimer = setInterval(() => {
+      browser.runtime
+        .getPlatformInfo()
+        .then(() => {})
+        .catch(() => {});
+    }, 12_000);
     const cleanup = () => {
       clearTimeout(timer);
+      clearInterval(keepAliveTimer);
       chromeApi!.runtime.onMessage.removeListener(listener);
     };
     chromeApi!.runtime.onMessage.addListener(listener);
@@ -127,6 +203,8 @@ async function visionHostRequest<T>(msg: Record<string, unknown>, timeoutMs = 90
       .sendMessage({ ...msg, requestId })
       .catch((e) => {
         cleanup();
+        // Send failed → the doc is absent/unreachable; next ensure recreates it.
+        visionHostTimedOut = true;
         reject(e);
       });
   });
@@ -155,20 +233,30 @@ const WARM_IMAGE =
   "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
 let visionWarmStarted = false;
 
-// Fail-fast on-device vision degradation (Phase 2). When the vision host can't
-// answer a step — models still cold-loading (60-90s on a laptop) or the
-// offscreen doc unreachable — we must NOT burn a ~30s budget on EVERY step
-// (the previous behaviour made each step wait for vision + again for the OCR
-// gate, then degrade anyway). After one failure we stop attempting vision for
-// a couple of minutes and let background warm retries land; when the host is
-// ready the flag clears automatically and later steps get full OCR redaction.
-const VISION_DOWN_MS = 3 * 60 * 1000;
+// Fail-fast on-device vision degradation (Phase 2). When a vision request can't
+// complete — models still cold-loading (60-90s on a laptop) or the offscreen doc
+// unreachable — we must NOT burn a ~40s budget on EVERY step (the previous
+// behaviour made each step wait for vision + again for the OCR gate, then
+// degrade anyway). After one failure we cool down for a SHORT gap, re-attempt
+// the next step, and keep background warm retries landing; as soon as the host
+// is ready a later step gets full OCR/face redaction and the zero-leak OCR gate
+// again — recovery DURING the run.
+//
+// The old 3-minute block meant a host that took 60-90s to cold-load never came
+// back mid-session, and a warm success racing a step-timeout was stomped by the
+// stale down-flag. Now availability is driven purely by a retry gap, so it
+// self-corrects: every ~18s we give the host one more in-run attempt.
 const VISION_WARM_TIMEOUT_MS = 150_000; // cold load can legitimately take 60-90s+
-let visionDownUntil = 0;
+const VISION_TRY_GAP_MS = 18_000; // min spacing between per-step vision attempts
+let visionTryStamp = 0; // last time a vision request was attempted (or its cooldown set)
 let visionDownLoggedAt = 0;
+// Set when an existing offscreen vision host exists but doesn't answer a request
+// within its budget (wedged host). Cleared once the doc is recreated/responds.
+let visionHostTimedOut = false;
 
+/** Should the next step attempt on-device vision? (At most 1 attempt per gap.) */
 function visionHostAvailable(): boolean {
-  return Date.now() >= visionDownUntil;
+  return Date.now() - visionTryStamp >= VISION_TRY_GAP_MS;
 }
 
 // Module-scope logger for off-callback helpers (vision warm/degrade). The
@@ -185,26 +273,25 @@ async function moduleLog(
 }
 
 function markVisionHostDown(prefix: string, err: string): void {
-  visionDownUntil = Date.now() + VISION_DOWN_MS;
+  visionTryStamp = Date.now(); // cooldown — no more attempts until the gap lapses
   if (Date.now() - visionDownLoggedAt > 30_000) {
     visionDownLoggedAt = Date.now();
     void moduleLog(
       "info",
-      `${prefix}On-device vision down for a while (${err}) — using DOM-only redaction; warming in background…`,
+      `${prefix}On-device vision not ready (${err}) — DOM-only redaction; retrying vision on a later step + in the background…`,
     );
   }
 }
 
 async function warmVisionModels(retries = 5): Promise<boolean> {
   if (visionWarmStarted) return false;
-  if (!chromeApi?.offscreen) return false; // Firefox: no offscreen — skip warm
   visionWarmStarted = true;
   try {
     const r = await visionHostRequest<{ loaded?: boolean }>(
       { type: "vision-warm", imageDataUrl: WARM_IMAGE, imageRegions: [] },
       VISION_WARM_TIMEOUT_MS,
     );
-    visionDownUntil = 0; // host is ready again — re-enable per-step vision
+    visionTryStamp = 0; // host ready — make the very next step attempt vision again
     return !!r?.loaded;
   } catch {
     // Cold load can outrun the first budget; keep retrying in the background
@@ -217,10 +304,55 @@ async function warmVisionModels(retries = 5): Promise<boolean> {
   }
 }
 
+// ── Cross-browser panel open ─────────────────────────────────────────────
+// Chrome uses the side panel; Firefox uses a sidebar_action. Both are guarded
+// so neither API's absence can break the other browser.
+
+function openSidePanelSync(): void {
+  const b = browser as unknown as {
+    sidePanel?: { open: (o: { windowId?: number }) => Promise<void> };
+    sidebarAction?: { open: () => Promise<void> | void };
+    windows?: { WINDOW_ID_CURRENT: number };
+  };
+  if (b.sidePanel?.open) {
+    void b.sidePanel
+      .open({ windowId: b.windows?.WINDOW_ID_CURRENT })
+      .catch(() => {});
+    return;
+  }
+  if (b.sidebarAction?.open) {
+    void Promise.resolve(b.sidebarAction.open()).catch(() => {});
+  }
+}
+
+async function openSidePanel(): Promise<void> {
+  const b = browser as unknown as {
+    sidePanel?: { open: (o: { windowId?: number }) => Promise<void> };
+    sidebarAction?: { open: () => Promise<void> | void };
+  };
+  try {
+    if (b.sidebarAction?.open) {
+      await Promise.resolve(b.sidebarAction.open());
+      return;
+    }
+    if (b.sidePanel?.open) {
+      const win = await browser.windows.getLastFocused({ populate: false });
+      if (win?.id) await b.sidePanel.open({ windowId: win.id });
+    }
+  } catch (err) {
+    console.warn("open panel failed:", err);
+  }
+}
+
 export default defineBackground(() => {
-  browser.sidePanel
-    .setPanelBehavior({ openPanelOnActionClick: true })
-    .catch(() => {});
+  // Chrome: side panel opens on the toolbar action. Firefox has no sidePanel
+  // API — the sidebar_action defined in the manifest is toggled by the browser
+  // button, so this is a no-op there (guarded).
+  if (browser.sidePanel?.setPanelBehavior) {
+    browser.sidePanel
+      .setPanelBehavior({ openPanelOnActionClick: true })
+      .catch(() => {});
+  }
 
   // Fire-and-forget: preload models in the background, don't block startup.
   // Retried until it lands; success clears the vision-down flag.
@@ -242,12 +374,22 @@ export default defineBackground(() => {
     }
     if (msg?.type === "stop-loop") {
       loopAbort = true;
+      // Release a loop waiting on a user question — it observes loopAbort next
+      // iteration and exits cleanly instead of hanging forever.
+      resolvePendingAsk("");
     }
     if (msg?.type === "cursor-toggle") {
       forwardCursorToggle(msg.enabled);
     }
     if (msg?.type === "open-panel") {
       openAgentPanel();
+    }
+    // Human-in-the-loop: the user answered / skipped a surfaced question.
+    if (msg?.type === "ask-answer") {
+      resolvePendingAsk(msg.answer);
+    }
+    if (msg?.type === "ask-skip") {
+      resolvePendingAsk("");
     }
   });
 
@@ -272,9 +414,7 @@ export default defineBackground(() => {
   });
 
   const openPanelSync = () => {
-    void (browser as any)
-      .sidePanel.open({ windowId: (browser as any).windows.WINDOW_ID_CURRENT })
-      .catch(() => {});
+    openSidePanelSync();
   };
 
   browser.commands.onCommand.addListener(async (command) => {
@@ -312,12 +452,7 @@ export default defineBackground(() => {
   });
 
   async function openAgentPanel() {
-    try {
-      const win = await browser.windows.getLastFocused({ populate: false });
-      if (win?.id) await browser.sidePanel.open({ windowId: win.id });
-    } catch (err) {
-      console.warn("sidePanel.open failed:", err);
-    }
+    await openSidePanel();
   }
 
   async function forwardCursorToggle(enabled: boolean) {
@@ -374,9 +509,142 @@ export default defineBackground(() => {
         return `EXTRACT("${a.text}")`;
       case "done":
         return `DONE${a.answer ? `: "${a.answer}"` : ""}`;
+      case "ask":
+        return `ASK("${(a.question ?? "").slice(0, 28)}")`;
       default:
         return JSON.stringify(a);
     }
+  }
+
+  // ── Human-in-the-loop (ask) ─────────────────────────────────────────────
+  // The VLM can pause the loop with an `ask` action (and the deterministic
+  // safety gate confirms before irreversible actions). The background surfaces
+  // the question to the side panel + page banner, then waits for the user's
+  // answer (or a skip) before the loop continues. The answer is fed back into
+  // the VLM context as the step result.
+
+  let pendingAskResolve: ((answer: string) => void) | null = null;
+  let askSeqCounter = 0;
+  const pendingAskTimers: ReturnType<typeof setTimeout>[] = [];
+
+  /** Resolve a pending ask ("" = skipped) from any listener path. */
+  function resolvePendingAsk(answer: string): void {
+    if (pendingAskResolve) {
+      const r = pendingAskResolve;
+      pendingAskResolve = null;
+      askSeqCounter += 1;
+      for (const t of pendingAskTimers.splice(0)) clearTimeout(t);
+      hideBanner();
+      r(answer);
+    }
+  }
+
+  /** Fire-and-forget dismiss of the in-page ask banner (active tab only). */
+  function hideBanner(): void {
+    browser.tabs
+      .query({ active: true, currentWindow: true })
+      .then((tabs) => {
+        const tab = tabs[0];
+        if (tab?.id) {
+          return browser.tabs.sendMessage(tab.id, { type: "ask-hide" } satisfies ExtMessage).catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }
+
+  /** Surface a question and block until the user answers or skips. */
+  async function askUser(
+    question: string,
+    options: string[],
+    kind: "decide" | "confirm",
+  ): Promise<string> {
+    await log(
+      "info",
+      `❓ Asking you: ${question}${options.length ? ` — ${options.join(" / ")}` : ""}`,
+    );
+    const answer = await new Promise<string>((resolve) => {
+      pendingAskResolve = resolve;
+      const askSeq = ++askSeqCounter;
+      // Broadcast to the side panel (runtime). Content scripts ignore the
+      // viaPanel variant so the banner never appears on every tab.
+      browser.runtime
+        .sendMessage({ type: "ask-user", question, options, kind, viaPanel: true } satisfies ExtMessage)
+        .catch(() => {});
+      // Targeted delivery to the ACTIVE tab's banner — the only surface that
+      // should show this question on the page.
+      browser.tabs
+        .query({ active: true, currentWindow: true })
+        .then((tabs) => {
+          const tab = tabs[0];
+          if (tab?.id) {
+            return browser.tabs
+              .sendMessage(tab.id, { type: "ask-user", question, options, kind } satisfies ExtMessage)
+              .catch(() => {});
+          }
+        })
+        .catch(() => {});
+      // Safety net: if neither surface is reachable (no panel, no banner),
+      // auto-skip after a short grace period so the loop can't stall forever.
+      // 25s is long enough for a human watching to answer, short enough that an
+      // unattended run never looks frozen for minutes on end. The sequence guard
+      // keeps a stale timer from skipping a NEWER question.
+      const timer = setTimeout(() => {
+        if (askSeq === askSeqCounter) resolvePendingAsk("");
+      }, ASK_TIMEOUT_MS);
+      pendingAskTimers.push(timer);
+    });
+    if (answer) {
+      await log("success", `👤 You answered: ${answer}`);
+    } else {
+      await log("info", `⏭ Skipped question — no answer given.`);
+    }
+    return answer;
+  }
+
+  /** Read the persisted "confirm before risky actions" toggle (default on). */
+  async function readConfirmEnabled(): Promise<boolean> {
+    try {
+      const { [STORAGE_CONFIRM]: v } = (await browser.storage.local.get(STORAGE_CONFIRM)) as {
+        [STORAGE_CONFIRM]?: boolean;
+      };
+      return v !== false;
+    } catch {
+      return true;
+    }
+  }
+
+  /**
+   * Deterministic safety gate — decide whether an action is irreversible /
+   * high-risk enough to confirm with the user before executing. Returns the
+   * question to ask, or null when the action may proceed without confirmation.
+   *
+   * Deliberately NARROW: only task-complete (`done`) and navigating off-site.
+   * Pressing Enter is how the agent drives almost every flow (form submit,
+   * search, dialog accept) — gating every Enter makes the loop constantly
+   * stall on a human prompt, which reads as "the agent is frozen". The leave-
+   * and-finish moments are the only ones worth an explicit Proceed/Cancel.
+   */
+  async function confirmQuestion(
+    action: AgentAction,
+    pageUrl: string | undefined,
+  ): Promise<{ question: string } | null> {
+    if (action.type === "done") {
+      return { question: `Mark the task as complete and stop?` };
+    }
+    if (action.type === "navigate") {
+      let leaving = true;
+      try {
+        const cur = new URL(pageUrl ?? "");
+        const next = new URL(action.url, pageUrl);
+        leaving = next.origin !== cur.origin;
+      } catch {
+        leaving = true;
+      }
+      if (leaving) {
+        return { question: `Navigate to ${action.url}? (leaving the current site)` };
+      }
+    }
+    return null;
   }
 
   // ── Model selection (shared via chrome.storage.local: "sihModel") ─────
@@ -480,8 +748,9 @@ export default defineBackground(() => {
   ): Promise<ServerActResponse> {
     const streamPath = path === "rethink" ? "/rethink/stream" : "/act/stream";
     const postPath = path === "rethink" ? "/rethink" : "/act";
+    const base = await getServerUrl();
     try {
-      const res = await fetch(`${SERVER_URL}${streamPath}`, {
+      const res = await fetch(`${base}${streamPath}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
@@ -490,38 +759,50 @@ export default defineBackground(() => {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = "";
-      let pendingEvent = "";
-      let lastError = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const frames = buffer.split(/\r?\n/);
-        buffer = frames.pop() ?? "";
-        for (const line of frames) {
-          if (line.startsWith("event: ")) pendingEvent = line.slice(7).trim();
-          else if (line.startsWith("data: ") && pendingEvent) {
-            try {
-              const data = JSON.parse(line.slice(6)) as unknown;
-              if (pendingEvent === "thought" && data) {
-                onToken((data as { delta?: string }).delta ?? "");
-              } else if (pendingEvent === "action" && data) {
-                return data as ServerActResponse;
-              } else if (pendingEvent === "error" && data) {
-                lastError = (data as { message?: string }).message ?? String(data);
+      // MV3 keep-alive: same suspension risk while streaming from a cold/slow
+      // VLM. Poke a real API on a 12s cadence until the stream settles.
+      const keepAliveTimer = setInterval(() => {
+        browser.runtime
+          .getPlatformInfo()
+          .then(() => {})
+          .catch(() => {});
+      }, 12_000);
+      try {
+        let buffer = "";
+        let pendingEvent = "";
+        let lastError = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const frames = buffer.split(/\r?\n/);
+          buffer = frames.pop() ?? "";
+          for (const line of frames) {
+            if (line.startsWith("event: ")) pendingEvent = line.slice(7).trim();
+            else if (line.startsWith("data: ") && pendingEvent) {
+              try {
+                const data = JSON.parse(line.slice(6)) as unknown;
+                if (pendingEvent === "thought" && data) {
+                  onToken((data as { delta?: string }).delta ?? "");
+                } else if (pendingEvent === "action" && data) {
+                  return data as ServerActResponse;
+                } else if (pendingEvent === "error" && data) {
+                  lastError = (data as { message?: string }).message ?? String(data);
+                }
+              } catch {
+                /* skip malformed frame */
               }
-            } catch {
-              /* skip malformed frame */
+              pendingEvent = "";
             }
-            pendingEvent = "";
           }
         }
+        throw new Error(lastError || "stream ended without an action");
+      } finally {
+        clearInterval(keepAliveTimer);
       }
-      throw new Error(lastError || "stream ended without an action");
     } catch (err) {
       // Fallback: classic non-streamed POST (kept for robustness).
-      const res = await fetch(`${SERVER_URL}${postPath}`, {
+      const res = await fetch(`${base}${postPath}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
@@ -598,47 +879,58 @@ export default defineBackground(() => {
     );
     await log("info", `${prefix}Screenshot captured (${kb} KB)`);
 
-    // 2) Serialize DOM — inject content script if not already present
+    // 2) Serialize DOM — inject content script if not already present. Retried a
+    //    few times with widening delays: right after a navigate/reload the
+    //    document is mid-load and the listener can be absent or reject while an
+    //    SPA re-renders. A bounded retry absorbs that transient instead of
+    //    failing the whole step (steps 9/10 in the field regression did exactly this).
     let dom: DomElement[] = [];
     let proseRedactions = [];
     let imageRegions: [number, number, number, number][] = [];
-    try {
-      const res = await browser.tabs.sendMessage(tab.id, { type: "serialize-dom" });
-      dom = Array.isArray(res?.dom) ? res.dom : [];
-      proseRedactions = Array.isArray(res?.proseRedactions) ? res.proseRedactions : [];
-      imageRegions = Array.isArray(res?.imageRegions) ? res.imageRegions : [];
-      await log("info", `${prefix}DOM serialized: ${dom.length} interactive elements`);
-      if (dom.length > 0) {
-        const preview = dom
-          .slice(0, 20)
-          .map(
-            (el) =>
-              `${el.id}:<${el.tag}>[${el.role}]"${(el.label || el.text || "").slice(0, 24)}"`,
-          )
-          .join("  ");
-        await log("info", `${prefix}DOM: ${preview}`);
-      }
-    } catch {
-      // Content script not injected — inject it and retry
+    let serializeErr = "";
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        await log("info", `${prefix}Injecting content script…`);
-        await (browser as any).scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ["content-scripts/content.js"],
-        });
-        // Small delay for the script to initialize
-        await new Promise((r) => setTimeout(r, 100));
         const res = await browser.tabs.sendMessage(tab.id, { type: "serialize-dom" });
         dom = Array.isArray(res?.dom) ? res.dom : [];
         proseRedactions = Array.isArray(res?.proseRedactions) ? res.proseRedactions : [];
         imageRegions = Array.isArray(res?.imageRegions) ? res.imageRegions : [];
-        await log("info", `${prefix}DOM serialized: ${dom.length} interactive elements`);
-      } catch (e2) {
-        await log("error", `${prefix}DOM serialize failed: ${e2}`);
-        throw new Error(
-          `DOM serialization failed (${e2}) — cannot proceed without a DOM snapshot (privacy gate requires it).`,
-        );
+        break;
+      } catch (err) {
+        serializeErr = err instanceof Error ? err.message : String(err);
+        if (attempt === 1) {
+          await log("info", `${prefix}Injecting content script…`);
+          try {
+            await (browser as any).scripting.executeScript({
+              target: { tabId: tab.id },
+              files: ["content-scripts/content.js"],
+            });
+          } catch {
+            /* already injected or page still loading */
+          }
+        }
+        // Widening backoff so an mid-load SPA gets time to settle its listeners.
+        await new Promise((r) => setTimeout(r, 600 * attempt));
       }
+    }
+    if (dom.length === 0) {
+      const friendly = LISTENER_REJECT.test(serializeErr)
+        ? "the page was still loading or navigating (content-script listener rejected while the page changed)"
+        : serializeErr;
+      await log("error", `${prefix}DOM serialize failed: ${friendly}`);
+      throw new Error(
+        `DOM serialization failed (${friendly}) — cannot proceed without a DOM snapshot (privacy gate requires it).`,
+      );
+    }
+    await log("info", `${prefix}DOM serialized: ${dom.length} interactive elements`);
+    if (dom.length > 0) {
+      const preview = dom
+        .slice(0, 20)
+        .map(
+          (el) =>
+            `${el.id}:<${el.tag}>[${el.role}]"${(el.label || el.text || "").slice(0, 24)}"`,
+        )
+        .join("  ");
+      await log("info", `${prefix}DOM: ${preview}`);
     }
 
     // 3) Sanitize + SoM overlay (the privacy gate)
@@ -655,7 +947,7 @@ export default defineBackground(() => {
     // vision — including the zero-leak OCR gate further down — must NEVER block
     // the agent loop. We give the whole on-device pipeline a short, bounded
     // budget and fall back to DOM-only redaction on any failure/timeout.
-    const VISION_STEP_TIMEOUT_MS = 30000;
+    const VISION_STEP_TIMEOUT_MS = 40000;
     let vision: VisionFindings | undefined;
     if (visionHostAvailable()) {
       try {
@@ -832,8 +1124,21 @@ visionHostRequest<{
               ms: vision.perception.ms,
               summary: vision.perception.summary,
               escalate: vision.perception.decisions.escalate.length,
+              backend: vision.perception.backend,
             }
           : { enabled: false, ms: 0, summary: {}, escalate: 0 },
+        // Per-region audit log for the interactive exhibit. Device-local only
+        // (this message never crosses the network); masked form, never raw.
+        redactions: (payload.redactions ?? [])
+          .slice(0, REDACTIONS_PANEL_CAP)
+          .map((r) => ({
+            type: r.type,
+            tier: r.tier,
+            token: r.token,
+            bbox: r.bbox,
+            source: r.source,
+            masked: r.masked,
+          })),
       } satisfies ExtMessage)
       .catch(() => {});
 
@@ -871,7 +1176,63 @@ visionHostRequest<{
       } satisfies ExtMessage)
       .catch(() => {});
 
-    // 5) Execute action in the tab
+    // 5) Execute action in the tab — unless the agent paused to ask the user.
+    //
+    // Human-in-the-loop: an `ask` action is NEVER dispatched to the page. The
+    // background surfaces it to the side panel + page banner, waits for the
+    // user's answer, and returns it as the step result so the VLM continues
+    // with the answer in context next step.
+    if (data.action.type === "ask") {
+      await stage("acting", "Waiting for your input…");
+      const answer = await askUser(data.action.question, data.action.options ?? [], "decide");
+      await browser.runtime
+        .sendMessage({ type: "decision-result", result: answer } satisfies ExtMessage)
+        .catch(() => {});
+      return {
+        ok: true,
+        done: false,
+        result: answer ? `USER ANSWER: ${answer}` : "USER SKIPPED the question.",
+        action: data.action,
+        subgoal: data.subgoal,
+        blocked: false,
+        // Distinct fingerprint: the user's answer changed the decision context,
+        // so the no-progress detector must not treat this as a stalled page.
+        domFingerprint: `ASK:${data.action.question}`,
+      };
+    }
+
+    // Deterministic safety confirmation (toggle-gated, default on): before
+    // irreversible / high-risk actions — form submit (Enter), task-complete
+    // (done), or navigating away to a different origin — ask the user first.
+    if (await readConfirmEnabled()) {
+      const confirm = await confirmQuestion(data.action, tab.url);
+      if (confirm) {
+        const answer = await askUser(confirm.question, ["Proceed", "Cancel"], "confirm");
+        if (!answer || answer.trim().toLowerCase().startsWith("cancel")) {
+          const result = "USER CANCELED: " + actionLabel(data.action);
+          await log("error", `${prefix}${result}`);
+          pushWarning(
+            warnings,
+            `The user canceled ${JSON.stringify(data.action)} — do NOT attempt it again; pick a different approach.`,
+          );
+          await browser.runtime
+            .sendMessage({ type: "decision-result", result: "⛔ Canceled by you" } satisfies ExtMessage)
+            .catch(() => {});
+          return {
+            ok: true,
+            done: false,
+            result,
+            action: data.action,
+            subgoal: data.subgoal,
+            blocked: true,
+            domFingerprint: `CANCELED:${data.action.type}`,
+          };
+        }
+        await log("success", `${prefix}Confirmed by user: ${actionLabel(data.action)}`);
+      }
+    }
+
+    // 6) Execute action in the tab
     await log("info", `${prefix}Executing ${data.action.type}…`);
     let result: string;
     try {
@@ -880,10 +1241,35 @@ visionHostRequest<{
         action: data.action,
       } satisfies ExecuteActionMsg)) as string;
     } catch (err) {
-      // Attach the action that failed so the learner can feed a precise,
-      // contextual error back to the VLM on the next step.
+      const msg = err instanceof Error ? err.message : String(err);
       (err as Error & { agentAction?: AgentAction }).agentAction = data.action;
-      throw err;
+      if (LISTENER_REJECT.test(msg)) {
+        // Content-script teardown race — the page navigated/reloaded while the
+        // action was being dispatched, so the landing is unknowable and the
+        // action very likely never completed. Give the settled page ONE
+        // deterministic re-drive before declaring a failure.
+        await log(
+          "info",
+          `${prefix}Page changed mid-execution (${msg}) — retrying ${data.action.type} once on the settled page…`,
+        );
+        await new Promise((r) => setTimeout(r, 1200));
+        try {
+          result = (await browser.tabs.sendMessage(tab.id, {
+            type: "execute-action",
+            action: data.action,
+          } satisfies ExecuteActionMsg)) as string;
+        } catch (err2) {
+          const msg2 = err2 instanceof Error ? err2.message : String(err2);
+          (err2 as Error & { agentAction?: AgentAction }).agentAction = data.action;
+          // If the SECOND attempt also dies on a torn-down listener, the page is
+          // genuinely still settling — flag it transient so the run loop knows
+          // this is NOT a bad action (no lesson memory, no stuck-counter poison).
+          (err2 as Error & { transient?: boolean }).transient = LISTENER_REJECT.test(msg2);
+          throw err2;
+        }
+      } else {
+        throw err;
+      }
     }
     await log("success", `${prefix}Done: ${result}`);
 
@@ -1269,8 +1655,29 @@ visionHostRequest<{
       } catch (err) {
         consecutiveFailures++;
         const errMsg = err instanceof Error ? err.message : String(err);
+        const transient = !!(err as Error & { transient?: boolean }).transient;
         await log("error", `Step ${step + 1} failed (${consecutiveFailures}/${MAX_CONSECUTIVE_FAILURES}): ${errMsg}`);
         const failedAction = (err as Error & { agentAction?: AgentAction }).agentAction;
+
+        // Transient failure: the content script was torn down mid-action by a
+        // page navigate/reload. The ACTION was never proven wrong — so clear the
+        // failure counter, skip lesson/warning poisoning, and just note the page
+        // change for the next step so the model re-plans against the new DOM.
+        if (transient) {
+          if (failedAction) {
+            history.push({
+              action: failedAction,
+              result: `TRANSIENT: page was navigating/reloading during execution — ${errMsg}.`,
+              blocked: false,
+            });
+            await log(
+              "info",
+              `Page change during action (no failure counted): ${JSON.stringify(failedAction)} → ${errMsg}`,
+            );
+          }
+          consecutiveFailures = 0;
+          continue;
+        }
 
         // ── Within-run feedback: the model must SEE its mistake next step.
         if (failedAction) {

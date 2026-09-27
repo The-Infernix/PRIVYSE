@@ -1,11 +1,11 @@
 {
-  "totalBytes": 42741742,
+  "totalBytes": 56599527,
   "files": {
     "face/detector_short.tflite": 229746,
     "mp/vision_wasm_internal.js": 323377,
     "mp/vision_wasm_internal.wasm": 11756954,
-    "ort/ort-wasm-simd-threaded.mjs": 24218,
-    "ort/ort-wasm-simd-threaded.wasm": 13961845,
+    "ort/ort-wasm-simd-threaded.jsep.mjs": 46676,
+    "ort/ort-wasm-simd-threaded.jsep.wasm": 27797172,
     "perception/imagenet-1k-id2label.json": 33568,
     "perception/model_quantized.onnx": 6303767,
     "tesseract/tesseract.min.js": 62961,

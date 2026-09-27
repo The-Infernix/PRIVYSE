@@ -1,0 +1,60 @@
+# PRIVYSE — server + optional local GPU VLM.
+#
+# Default (hosted VLM or an Ollama you already run):
+#   cp .env.example .env         # then edit OPENAI_BASE_URL / VLM_API_KEY
+#   docker compose up --build
+#
+# Bundled local Ollama (GPU if available):
+#   docker compose --profile gpu up --build
+#   docker compose exec ollama ollama pull qwen2.5vl:3b
+#
+# Then point the extension's Advanced → Server URL at this host:
+#   http://<host>:8000
+
+services:
+  server:
+    build: .
+    image: privyse-server:latest
+    ports:
+      - "${SERVER_PORT:-8000}:8000"
+    environment:
+      # Any OpenAI-compatible endpoint. Inside compose the bundled Ollama is
+      # reachable as http://ollama:11434/v1; from the host use
+      # http://host.docker.internal:11434/v1.
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-http://ollama:11434/v1}
+      VLM_API_KEY: ${VLM_API_KEY:-ollama}
+      VLM_MODEL: ${VLM_MODEL:-qwen2.5vl:3b}
+      VLM_MAX_TOKENS: ${VLM_MAX_TOKENS:-128}
+      NUM_CTX: ${NUM_CTX:-4096}
+      IMAGE_MAX_SIDE: ${IMAGE_MAX_SIDE:-800}
+      # Optional: serve the benchmark test-site + bundled model weights.
+      TEST_SITE_DIR: /test-site
+      MODELS_DIR: /models
+    volumes:
+      # Uncomment to expose the local ground-truth PII pages + on-device models
+      # (only needed for the benchmark harness / dev builds).
+      # - ../test-site:/test-site:ro
+      # - ../extension/public/models:/models:ro
+    restart: unless-stopped
+
+  # Optional local VLM. Enable with `--profile gpu`. Remove this service (and
+  # leave OPENAI_BASE_URL pointing at your hosted endpoint) to run server-only.
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["gpu"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    # NVIDIA GPU passthrough — needs nvidia-container-toolkit installed:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  ollama:

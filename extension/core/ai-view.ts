@@ -67,6 +67,23 @@ class AiView {
   private chips: Chip[] = [];
   private rafPending = false;
 
+  onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape" && this.active) {
+      e.preventDefault();
+      this.exit();
+    }
+  };
+
+  /** Persisted reflection of this mode (kept in sync so the page and the side
+   * panel agree — dismissing here stays dismissed). */
+  private syncStorage(on: boolean) {
+    try {
+      void browser.storage.local.set({ ["sihAiView"]: on }).catch(() => {});
+    } catch {
+      /* storage unavailable */
+    }
+  }
+
   ensure() {
     if (this.initd) return;
     this.initd = true;
@@ -126,6 +143,7 @@ class AiView {
     this.applyVisibility();
     window.addEventListener("scroll", this.onScroll, { passive: true });
     window.addEventListener("resize", this.onScroll);
+    window.addEventListener("keydown", this.onKey);
   }
 
   exit() {
@@ -151,8 +169,10 @@ class AiView {
     this.clearChips();
     this.active = false;
     this.applyVisibility();
+    this.syncStorage(false);
     window.removeEventListener("scroll", this.onScroll);
     window.removeEventListener("resize", this.onScroll);
+    window.removeEventListener("keydown", this.onKey);
   }
 
   /** Transient hide of the AI-view chrome during captures — the tokenized
@@ -235,46 +255,14 @@ class AiView {
           box-shadow: 0 1px 5px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.25);
           pointer-events: none;
         }
-        .topbar {
-          position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
-          display: flex; align-items: center; gap: 10px;
-          padding: 6px 8px 6px 14px; border-radius: 999px;
-          background: rgba(13,22,41,.97);
-          border: 1px solid rgba(167,139,250,.55);
-          color: #e5edf8;
-          font: 600 11px system-ui, "Segoe UI", sans-serif;
-          box-shadow: 0 10px 30px rgba(0,0,0,.5);
-          pointer-events: auto;
-          max-width: min(94vw, 640px);
-        }
-        .topbar .brand { color: #c4b5fd; font-weight: 800; letter-spacing: .06em; }
-        .topbar .desc { color: #8b9bb8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .topbar .btn {
-          padding: 4px 12px; border-radius: 999px;
-          font: 700 10px system-ui, "Segoe UI", sans-serif;
-          letter-spacing: .05em;
-          background: #2e1065; color: #ddd6fe;
-          border: 1px solid rgba(167,139,250,.55); cursor: pointer; user-select: none;
-          transition: filter .15s ease, border-color .15s ease;
-        }
-        .topbar .btn:hover { filter: brightness(1.15); border-color: #a78bfa; }
       </style>
       <div class="som"></div>
-      <div class="topbar">
-        <span class="brand">PRIVYSE AI VIEW</span>
-        <span class="desc">this is how the agent sees this page · PII → tokens</span>
-        <span class="btn" data-act="exit">Exit</span>
-      </div>
     `;
     document.documentElement.appendChild(host);
 
     this.host = host;
     this.root = root;
     this.somLayer = root.querySelector(".som") as HTMLElement;
-
-    root.querySelector(".topbar")?.addEventListener("click", (e) => {
-      if ((e.target as HTMLElement).dataset?.act === "exit") this.exit();
-    });
   }
 
   private applyVisibility() {

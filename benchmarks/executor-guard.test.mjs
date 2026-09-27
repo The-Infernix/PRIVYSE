@@ -136,10 +136,14 @@ const formCases = await page.evaluate(() => {
   const g = window.__sih.guards;
   const origin = location.origin;
   const mk = (action) => { const f = document.createElement("form"); if (action !== null) f.setAttribute("action", action); const i = document.createElement("input"); i.value = "hunter2"; f.appendChild(i); document.body.appendChild(f); return f; };
+  // An ALLOWED submit would really navigate; send it to a hidden iframe so the
+  // top document (and this test's execution context) survives the assertion.
+  const sink = document.createElement("iframe"); sink.name = "sih-sink"; document.body.appendChild(sink);
   const data = mk("data:text/html,leaky");
   const js = mk("javascript:void(0)");
   const mail = mk("mailto:attacker@evil.example");
   const httpX = mk("https://evil.example/pwn");
+  httpX.target = "sih-sink";
   const local = mk("/next");
   const none = mk(null);
   return {

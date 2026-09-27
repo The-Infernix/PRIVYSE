@@ -161,15 +161,19 @@ export async function getModelsMB(): Promise<number> {
 }
 
 /** Explicitly initialize ALL model stacks (face + OCR + ViT perception) so a
- * later runVision call doesn't pay the cold load. Used by the offscreen warm path. */
+ * later runVision call doesn't pay the cold load. Runs the three stacks in
+ * PARALLEL — the warm completes in max(face, OCR, perception), not their sum,
+ * so a host that needs 60-90s to cold-load recovers mid-run instead of only
+ * after the first session. Perception is best-effort: a failure there never
+ * blocks faces/OCR from becoming ready. */
 export async function warmVision(): Promise<void> {
-  await getFaceDetector();
-  await getTesseract();
-  try {
-    await warmPerception();
-  } catch {
-    /* perception is best-effort; faces/OCR are the privacy-critical cores */
-  }
+  await Promise.all([
+    getFaceDetector(),
+    getTesseract(),
+    warmPerception().catch(() => {
+      /* perception is best-effort; faces/OCR are the privacy-critical cores */
+    }),
+  ]);
 }
 
 export async function terminateVision(): Promise<void> {

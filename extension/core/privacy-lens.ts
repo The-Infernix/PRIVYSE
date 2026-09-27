@@ -56,6 +56,22 @@ class LensOverlay {
   private regions: LensRegion[] = [];
   private rafPending = false;
 
+  onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape" && this.shown) {
+      e.preventDefault();
+      this.hide();
+    }
+  };
+
+  /** Keep the side panel's Lens checkbox + future page loads honest. */
+  private syncStorage(on: boolean) {
+    try {
+      void browser.storage.local.set({ ["sihLens"]: on }).catch(() => {});
+    } catch {
+      /* storage unavailable */
+    }
+  }
+
   ensure() {
     if (this.initd) return;
     this.initd = true;
@@ -75,18 +91,23 @@ class LensOverlay {
     this.ensure();
     this.shown = true;
     this.visible = true;
+    this.syncStorage(true);
     this.rescan();
     this.applyVisibility();
     window.addEventListener("scroll", this.onScroll, { passive: true });
     window.addEventListener("resize", this.onScroll);
+    window.addEventListener("keydown", this.onKey);
   }
 
   /** User-invoked hide. */
   hide() {
+    if (!this.shown) return;
     this.shown = false;
+    this.syncStorage(false);
     this.applyVisibility();
     window.removeEventListener("scroll", this.onScroll);
     window.removeEventListener("resize", this.onScroll);
+    window.removeEventListener("keydown", this.onKey);
   }
 
   /** Transient visibility (agent captures) — keeps the shown state. */
@@ -292,11 +313,11 @@ class LensOverlay {
         .banner.empty .lens-label b { color: #34d399; }
       </style>
       <div class="layer"></div>
-      <div class="banner">
+      <div class="banner" role="status" aria-live="polite">
         <span class="lens-label"><b>PRIVYSE</b> <span id="bannerText"></span></span>
-        <span class="btn primary" data-act="sanitized">Show sanitized view</span>
-        <span class="btn" data-act="rescan">Re-scan</span>
-        <span class="btn" data-act="hide">Hide</span>
+        <span class="btn primary" data-act="sanitized" tabindex="0" role="button">Show sanitized view</span>
+        <span class="btn" data-act="rescan" tabindex="0" role="button">Re-scan</span>
+        <span class="btn" data-act="hide" tabindex="0" role="button" aria-label="Dismiss privacy lens">✕ Dismiss</span>
       </div>
     `;
     document.documentElement.appendChild(host);
@@ -307,16 +328,32 @@ class LensOverlay {
     this.bannerEl = root.querySelector(".banner") as HTMLElement;
     this.bannerTextEl = root.querySelector("#bannerText") as HTMLElement;
 
-    root.querySelector(".banner")?.addEventListener("click", (e) => {
-      const act = (e.target as HTMLElement).dataset?.act;
-      if (act === "sanitized") {
+    const act = (name: string) => {
+      if (name === "sanitized") {
         this.hide();
         aiView.enter();
-      } else if (act === "rescan") {
+      } else if (name === "rescan") {
         this.rescan();
-      } else if (act === "hide") {
+      } else if (name === "hide") {
         this.hide();
       }
+    };
+
+    // Direct per-button binding (robust regardless of event delegation inside
+    // the closed shadow root) + keyboard activation on the faux buttons.
+    this.root?.querySelectorAll<HTMLElement>(".btn[data-act]").forEach((btn) => {
+      const name = btn.dataset.act ?? "";
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        act(name);
+      });
+      btn.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          act(name);
+        }
+      });
     });
   }
 }
